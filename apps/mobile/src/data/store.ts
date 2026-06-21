@@ -168,6 +168,42 @@ export async function resetDeck(): Promise<void> {
   await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY, REPORTED_KEY]);
 }
 
+/* ----- data rights (DPDP 2023 / GDPR / CCPA) ----- */
+
+/** All AsyncStorage keys this app owns — single source for export/delete. */
+const ALL_KEYS = [
+  MEPSYCH_KEY, MEBIRTH_KEY, MEAGE_KEY, MEINTERESTS_KEY, MEINTENTIONS_KEY, MEPROFILE_KEY,
+  MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY,
+  PASSED_KEY, LIKED_KEY, REPORTED_KEY, REPORTED_KEY + '_log', MSGS_KEY,
+];
+
+/**
+ * Data portability — return everything we hold about the user as one JSON object
+ * (the right to access/export under DPDP 2023 / GDPR). Keys are de-prefixed for
+ * readability. Caller can share/save the string.
+ */
+export async function exportMyData(): Promise<string> {
+  const entries = await AsyncStorage.multiGet(ALL_KEYS);
+  const data: Record<string, unknown> = {};
+  for (const [key, value] of entries) {
+    if (value == null) continue;
+    const label = key.replace(/^@csc\//, '');
+    try { data[label] = JSON.parse(value); } catch { data[label] = value; }
+  }
+  return JSON.stringify(
+    { app: 'Celestial Soul Connection', exportedAt: new Date().toISOString(), data },
+    null, 2,
+  );
+}
+
+/**
+ * Right to erasure — permanently remove all of the user's local data. (When the
+ * backend lands, this also calls the server delete endpoint; today it's local.)
+ */
+export async function deleteMyAccount(): Promise<void> {
+  await AsyncStorage.multiRemove(ALL_KEYS);
+}
+
 /* ----- chat ----- */
 export async function getMessages(matchId: string): Promise<Message[]> {
   const all = await getJSON<Record<string, Message[]>>(MSGS_KEY, {});
