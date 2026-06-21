@@ -116,6 +116,16 @@ export default function CandidateProfile() {
             </Reveal>
           )}
 
+        </View>
+
+        {/* Third photo — interleaved before the closing content */}
+        {gallery[2] && (
+          <View style={{ marginVertical: t.spacing['2xl'] }}>
+            <PhotoBlock uri={gallery[2]} height={440} />
+          </View>
+        )}
+
+        <View style={{ paddingHorizontal: t.spacing.xl, gap: t.spacing['2xl'] }}>
           {/* Why you align — teaser into the full reading */}
           <Reveal index={1}>
             <SectionLabel>Why you might align</SectionLabel>

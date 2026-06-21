@@ -4,12 +4,13 @@
  * This is how we converge on a look you love without rebuilding code each time.
  */
 import React from 'react';
-import { Pressable, View, ScrollView } from 'react-native';
+import { Pressable, View, ScrollView, Share, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
 import { Text } from '../../src/components/Text';
+import { exportMyData, deleteMyAccount } from '../../src/data/store';
 import { useTheme, useThemeControls } from '../../src/theme/ThemeProvider';
 import { PALETTES, ThemeName } from '../../src/theme/palettes';
 import { FeelName } from '../../src/theme/feel';
@@ -27,6 +28,25 @@ export default function StyleStudio() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { themeName, setTheme, available, feelName, setFeel, availableFeels } = useThemeControls();
+
+  const onExport = async () => {
+    const json = await exportMyData();
+    await Share.share({ title: 'My Celestial Soul Connection data', message: json });
+  };
+
+  const onDelete = () => {
+    Alert.alert(
+      'Delete your account?',
+      'This permanently erases your profile, matches, messages and consent records from this device. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete everything', style: 'destructive',
+          onPress: async () => { await deleteMyAccount(); router.replace('/'); },
+        },
+      ],
+    );
+  };
 
   return (
     <CinematicBackground>
@@ -87,9 +107,9 @@ export default function StyleStudio() {
         <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.sm }}>Privacy &amp; data</Text>
         <SettingRow t={t} label="Review my consent" help="See & withdraw what you've agreed to" onPress={() => router.push('/onboarding/birth-portal')} />
         <Hair t={t} />
-        <SettingRow t={t} label="Export my data" help="Download everything we hold about you" onPress={() => {}} />
+        <SettingRow t={t} label="Export my data" help="Download everything we hold about you" onPress={onExport} />
         <Hair t={t} />
-        <SettingRow t={t} label="Delete my account" help="Permanently erase your data" danger onPress={() => {}} />
+        <SettingRow t={t} label="Delete my account" help="Permanently erase your data" danger onPress={onDelete} />
         <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.md }}>
           Birth & chat data are encrypted. Consent is logged to an append-only record. We never
           sell your data. DPDP 2023 · GDPR · CCPA.
