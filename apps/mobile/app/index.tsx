@@ -10,7 +10,7 @@
  * most of the "premium" weight.
  */
 import React, { useEffect } from 'react';
-import { View, useWindowDimensions, StyleSheet } from 'react-native';
+import { View, useWindowDimensions, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -114,6 +114,9 @@ export default function Welcome() {
           <Text variant="caption" color="textOnImageMuted" onImage center style={{ marginTop: t.spacing.xs }}>
             By continuing you agree to granular, withdrawable consent. You choose what we use.
           </Text>
+          <Pressable onPress={() => router.push('/settings/theme')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
+            <Text variant="label" color="textOnImage" onImage>✦ Try a different style</Text>
+          </Pressable>
         </Reveal>
       </View>
     </CinematicBackground>
