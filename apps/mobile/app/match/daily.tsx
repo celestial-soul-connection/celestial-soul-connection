@@ -25,7 +25,7 @@ import { CompatibilityRing } from '../../src/components/CompatibilityRing';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { getDeck, passProfile, likeProfile, resetDeck, getMyBirth } from '../../src/data/store';
 import { hydrateAstro } from '../../src/data/matching';
-import { MatchResult } from '../../src/data/types';
+import { MatchResult, maritalLabel } from '../../src/data/types';
 import { haptic } from '../../src/lib/haptics';
 
 const DAILY_LIMIT = 5;
@@ -107,7 +107,13 @@ export default function DailyMatch() {
             <Text variant="overline" color="textFaint" uppercase>Your alignment today</Text>
             <Text variant="displayLg">Today's matches</Text>
           </View>
-          <Chip label={`${Math.max(0, DAILY_LIMIT - viewedToday)} of ${DAILY_LIMIT} left`} tone="accent" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+            <Chip label={`${Math.max(0, DAILY_LIMIT - viewedToday)} of ${DAILY_LIMIT} left`} tone="accent" />
+            <Pressable onPress={() => router.push('/settings/theme')} hitSlop={12}
+              style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.colors.bgElevated, borderWidth: 1, borderColor: t.colors.border }}>
+              <Text variant="title" color="textMuted">⚙</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Deck */}
@@ -149,9 +155,6 @@ export default function DailyMatch() {
           </View>
         )}
 
-        <Pressable onPress={() => router.push('/settings/theme')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
-          <Text variant="label" color="textMuted">✦ Style &amp; privacy</Text>
-        </Pressable>
       </View>
     </CinematicBackground>
   );
@@ -178,23 +181,27 @@ function MatchCardBody({ m, t, width, height, onReading }: { m: MatchResult; t: 
       {/* Bottom info */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: t.spacing.xl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text variant="displayLg" color="textOnImage" onImage>{m.profile.name}, {m.profile.age}</Text>
+          <Text variant="displayXl" color="textOnImage" onImage>{m.profile.name}, {m.profile.age}</Text>
           {m.profile.verified?.photo && (
-            <View style={{ backgroundColor: t.colors.success, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2 }}>
-              <Text variant="caption" color="textOnPrimary">✓ verified</Text>
+            <View style={{ width: 22, height: 22, borderRadius: 22, backgroundColor: t.colors.success, alignItems: 'center', justifyContent: 'center' }}>
+              <Text variant="caption" color="textOnPrimary">✓</Text>
             </View>
           )}
         </View>
-        <Text variant="body" color="textOnImageMuted" onImage style={{ marginTop: 2 }}>{m.profile.blurb}</Text>
+        <Text variant="label" color="textOnImageMuted" onImage style={{ marginTop: 4 }}>
+          {[m.profile.city, maritalLabel(m.profile.maritalStatus)].filter(Boolean).join('  ·  ')}
+        </Text>
+        <Text variant="body" color="textOnImageMuted" onImage style={{ marginTop: t.spacing.sm }} numberOfLines={1}>{m.profile.blurb}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.md }}>
           {m.reasons.slice(0, 3).map((r) => (
-            <View key={r.dim} style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 5 }}>
-              <Text variant="label" color="textOnImage" onImage>{r.dim} · {r.pct}%</Text>
+            <View key={r.dim} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
+              <Text variant="label" color="textOnImage" onImage>{r.dim}</Text>
+              <Text variant="label" color="textOnImageMuted" onImage>{r.pct}%</Text>
             </View>
           ))}
         </View>
-        <Pressable onPress={onReading} style={{ marginTop: t.spacing.md, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.lg, paddingVertical: 8 }}>
-          <Text variant="label" color="textOnImage" onImage>✦ See full reading</Text>
+        <Pressable onPress={onReading} style={{ marginTop: t.spacing.lg, alignSelf: 'flex-start' }}>
+          <Text variant="label" color="textOnImage" onImage>✦ See full reading  →</Text>
         </Pressable>
       </View>
     </View>
