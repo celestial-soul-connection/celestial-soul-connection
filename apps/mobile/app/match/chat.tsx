@@ -6,7 +6,7 @@
  * profile and a featured "soul probe". Premium glass UI over the cinematic bg.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, ScrollView, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, ScrollView, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +18,7 @@ import { Text } from '../../src/components/Text';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { haptic } from '../../src/lib/haptics';
 import { SEED_PROFILES, PROBES } from '../../src/data/seedProfiles';
-import { getMessages, addMessage } from '../../src/data/store';
+import { getMessages, addMessage, isContactUnlocked, unlockContact, CONTACT_UNLOCK_FEE } from '../../src/data/store';
 import { scan } from '../../src/data/contactFilter';
 import { Message } from '../../src/data/types';
 
@@ -33,18 +33,35 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
     const m = await getMessages(matchId);
     setMessages(m);
+    setUnlocked(await isContactUnlocked(matchId));
   }, [matchId]);
   useEffect(() => { load(); }, [load]);
+
+  const promptUnlock = () => {
+    Alert.alert(
+      `Unlock contact with ${them.name}?`,
+      `You've both aligned. For a one-time nominal fee of ₹${CONTACT_UNLOCK_FEE} (charged to you), you can exchange direct contact details. Your consent is logged.`,
+      [
+        { text: 'Not yet', style: 'cancel' },
+        {
+          text: `Pay ₹${CONTACT_UNLOCK_FEE} & unlock`,
+          onPress: async () => { await unlockContact(matchId); haptic.success(); await load(); },
+        },
+      ],
+    );
+  };
 
   const send = async () => {
     const text = draft.trim();
     if (!text) return;
-    const { text: clean, redacted } = scan(text);
+    // Once contact is unlocked (paid + consented), stop redacting for this thread.
+    const { text: clean, redacted } = unlocked ? { text, redacted: false } : scan(text);
     const msg: Message = { id: 'm_' + Date.now(), matchId, fromMe: true, text: clean, redacted, ts: Date.now() };
     await addMessage(msg);
     setDraft('');
@@ -98,9 +115,17 @@ export default function Chat() {
           {notice && (
             <Text variant="caption" color="danger" center style={{ marginBottom: t.spacing.sm }}>{notice}</Text>
           )}
-          <Text variant="caption" color="textFaint" center style={{ marginBottom: t.spacing.sm }}>
-            Phone numbers &amp; socials are blocked — contact unlocks only on a mutual match.
-          </Text>
+          {unlocked ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: t.spacing.sm }}>
+              <Text variant="caption" color="success">✓ Contact unlocked — you can share details directly now.</Text>
+            </View>
+          ) : (
+            <Pressable onPress={promptUnlock} style={{ marginBottom: t.spacing.sm }}>
+              <Text variant="caption" color="primary" center>
+                Phone numbers &amp; socials are blocked. ✦ Unlock contact (₹{CONTACT_UNLOCK_FEE})
+              </Text>
+            </Pressable>
+          )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
             <View style={{ flex: 1, backgroundColor: t.colors.bgElevated, borderRadius: t.radii.pill, borderWidth: 1, borderColor: t.colors.border, paddingHorizontal: t.spacing.lg, minHeight: 50, justifyContent: 'center' }}>
               <TextInput

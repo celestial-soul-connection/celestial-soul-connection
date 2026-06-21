@@ -131,8 +131,3 @@ function Trait({ t, label }: { t: ReturnType<typeof useTheme>; label: string }) 
     </View>
   );
 }
-
-function hexA(hex: string, a: number) {
-  const h = hex.replace('#', '');
-  return `rgba(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)}, ${a})`;
-}
