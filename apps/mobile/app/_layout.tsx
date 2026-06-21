@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
 import { FONT_ASSETS } from '../src/theme/fonts';
+import { ensureTrialStarted } from '../src/data/billing';
 
 function StatusBarThemed() {
   const t = useTheme();
@@ -22,6 +23,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (error) console.warn('Font load error (add .ttf files to assets/fonts):', error);
   }, [error]);
+
+  // Start the 7-day free trial clock on first launch (idempotent).
+  useEffect(() => { ensureTrialStarted(); }, []);
 
   // Keep splash until fonts load; allow render on error so dev isn't blocked.
   if (!loaded && !error) return null;
@@ -45,6 +49,7 @@ export default function RootLayout() {
             <Stack.Screen name="profile/me" />
             <Stack.Screen name="profile/[id]" />
             <Stack.Screen name="settings/theme" />
+            <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
           </Stack>
         </SafeAreaProvider>
       </ThemeProvider>
