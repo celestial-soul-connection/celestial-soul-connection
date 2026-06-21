@@ -1,14 +1,18 @@
 /**
- * OTP entry — second step. Any 4-6 digit code verifies (stub). On success we
- * route to the questionnaire if not onboarded, else straight to matches.
+ * OTP entry — premium segmented code input. Animated progress spine, headline,
+ * a "Sent to +91 98765… · Edit" reassurance+escape line, 6 segmented boxes that
+ * fill with a spring and shake on a wrong code, and a live resend countdown.
+ * Auto-verifies on the last digit (with a deliberate pause). Dev: any code works.
  */
-import React, { useState } from 'react';
-import { View, TextInput } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ScreenFrame } from '../../src/components/ScreenFrame';
+import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
+import { OnboardingProgress } from '../../src/components/fx/OnboardingProgress';
+import { OtpBoxes, OtpBoxesRef } from '../../src/components/fx/OtpBoxes';
+import { Reveal } from '../../src/components/fx/Reveal';
 import { Text } from '../../src/components/Text';
-import { Button } from '../../src/components/Button';
-import { GlassCard } from '../../src/components/fx/GlassCard';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { verifyOtp } from '../../src/data/session';
 import { haptic } from '../../src/lib/haptics';
@@ -16,49 +20,70 @@ import { haptic } from '../../src/lib/haptics';
 export default function OtpScreen() {
   const t = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { phone } = useLocalSearchParams<{ phone: string }>();
-  const [otp, setOtp] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const boxesRef = useRef<OtpBoxesRef>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [seconds, setSeconds] = useState(30);
 
-  const submit = async () => {
-    setLoading(true); setError(null);
+  useEffect(() => {
+    if (seconds <= 0) return;
+    const id = setTimeout(() => setSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [seconds]);
+
+  const onComplete = async (code: string) => {
+    setVerifying(true);
     try {
-      const session = await verifyOtp(phone ?? '', otp);
+      const session = await verifyOtp(phone ?? '', code);
       haptic.success();
       router.replace(session.onboarded ? '/match/daily' : '/onboarding/birth-portal');
-    } catch (e: any) {
-      setError(e.message ?? 'Invalid code');
-    } finally {
-      setLoading(false);
+    } catch {
+      setVerifying(false);
+      boxesRef.current?.shakeError();
     }
   };
 
-  const valid = otp.replace(/\D/g, '').length >= 4;
-
   return (
-    <ScreenFrame scroll={false} contentStyle={{ flex: 1, justifyContent: 'center' }}>
-      <Text variant="overline" color="textFaint" uppercase>Verify</Text>
-      <Text variant="displayLg" style={{ marginTop: t.spacing.xs }}>Enter your code</Text>
-      <Text variant="body" color="textMuted" style={{ marginTop: t.spacing.sm }}>
-        We sent a 6-digit code to {phone}. (Dev mode: any code works.)
-      </Text>
+    <CinematicBackground>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <View style={{ flex: 1, paddingHorizontal: t.spacing.xl, paddingTop: insets.top + t.spacing.lg, paddingBottom: insets.bottom + t.spacing.lg }}>
+          <OnboardingProgress step={2} total={4} />
 
-      <GlassCard style={{ marginTop: t.spacing.xl }}>
-        <TextInput
-          value={otp}
-          onChangeText={(v) => { setOtp(v); setError(null); }}
-          keyboardType="number-pad"
-          placeholder="• • • • • •"
-          placeholderTextColor={t.colors.textFaint}
-          autoFocus
-          maxLength={6}
-          style={{ color: t.colors.text, fontFamily: t.fontFamily.bodyBold, fontSize: 30, letterSpacing: 10, textAlign: 'center', paddingVertical: t.spacing.sm }}
-        />
-      </GlassCard>
-      {error && <Text variant="caption" color="danger" center style={{ marginTop: t.spacing.sm }}>{error}</Text>}
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Reveal index={0}>
+              <Text variant="overline" color="primary" uppercase>Step 2 · Almost in</Text>
+            </Reveal>
+            <Reveal index={1}>
+              <Text variant="displayXl" style={{ marginTop: t.spacing.md }}>Enter the code</Text>
+            </Reveal>
+            <Reveal index={2}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: t.spacing.md }}>
+                <Text variant="bodyLg" color="textMuted">Sent to {phone}  </Text>
+                <Pressable onPress={() => router.back()} hitSlop={8}>
+                  <Text variant="bodyLg" color="primary">Edit</Text>
+                </Pressable>
+              </View>
+            </Reveal>
 
-      <Button label="Verify & continue" disabled={!valid} loading={loading} onPress={submit} style={{ marginTop: t.spacing.xl }} />
-    </ScreenFrame>
+            <Reveal index={3} style={{ marginTop: t.spacing['2xl'] }}>
+              <OtpBoxes ref={boxesRef} length={6} onComplete={onComplete} />
+            </Reveal>
+
+            <Reveal index={4} style={{ marginTop: t.spacing.xl, alignItems: 'center' }}>
+              {verifying ? (
+                <Text variant="label" color="textMuted">Verifying…</Text>
+              ) : seconds > 0 ? (
+                <Text variant="label" color="textFaint">Resend in 0:{seconds.toString().padStart(2, '0')}</Text>
+              ) : (
+                <Pressable onPress={() => { setSeconds(30); haptic.light(); }}>
+                  <Text variant="label" color="primary">Resend code</Text>
+                </Pressable>
+              )}
+            </Reveal>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </CinematicBackground>
   );
 }

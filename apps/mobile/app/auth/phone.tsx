@@ -1,58 +1,73 @@
 /**
- * Phone entry — first step of the stubbed OTP login. Enter any phone; we "send"
- * a code and move to the OTP screen. Premium glass input over the cinematic bg.
+ * Phone entry — premium, Hinge-grade. Full-bleed (not boxed): animated progress
+ * spine, oversized conversational headline, warm trust microcopy, a country-pill +
+ * big dialing-digits input with a center-grow focus underline, and a bottom-
+ * anchored CTA that "unlocks" (lifts to filled accent) the moment the number is valid.
  */
 import React, { useState } from 'react';
-import { View, TextInput } from 'react-native';
+import { View, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ScreenFrame } from '../../src/components/ScreenFrame';
+import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
+import { OnboardingProgress } from '../../src/components/fx/OnboardingProgress';
+import { PhoneField, COUNTRIES, Country } from '../../src/components/fx/PhoneField';
+import { Reveal } from '../../src/components/fx/Reveal';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
-import { GlassCard } from '../../src/components/fx/GlassCard';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { requestOtp } from '../../src/data/session';
 
 export default function PhoneScreen() {
   const t = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState('');
+  const [country, setCountry] = useState<Country>(COUNTRIES[0]);
   const [loading, setLoading] = useState(false);
+
+  const fullNumber = `${country.dial} ${phone}`.trim();
+  const valid = phone.replace(/\D/g, '').length >= 7;
 
   const submit = async () => {
     setLoading(true);
-    const { ok } = await requestOtp(phone);
+    const { ok } = await requestOtp(fullNumber);
     setLoading(false);
-    if (ok) router.push({ pathname: '/auth/otp', params: { phone } });
+    if (ok) router.push({ pathname: '/auth/otp', params: { phone: fullNumber } });
   };
 
-  const valid = phone.replace(/\D/g, '').length >= 7;
-
   return (
-    <ScreenFrame scroll={false} contentStyle={{ flex: 1, justifyContent: 'center' }}>
-      <Text variant="overline" color="textFaint" uppercase>Welcome</Text>
-      <Text variant="displayLg" style={{ marginTop: t.spacing.xs }}>Let's begin with your number</Text>
-      <Text variant="body" color="textMuted" style={{ marginTop: t.spacing.sm }}>
-        We use it to keep the community real and verified. It's never shown to other
-        members.
-      </Text>
+    <CinematicBackground>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <View style={{ flex: 1, paddingHorizontal: t.spacing.xl, paddingTop: insets.top + t.spacing.lg, paddingBottom: insets.bottom + t.spacing.lg }}>
+          <OnboardingProgress step={1} total={4} />
 
-      <GlassCard style={{ marginTop: t.spacing.xl }}>
-        <Text variant="overline" color="textFaint" uppercase>Phone number</Text>
-        <TextInput
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          placeholder="+91 98765 43210"
-          placeholderTextColor={t.colors.textFaint}
-          autoFocus
-          style={{ color: t.colors.text, fontFamily: t.fontFamily.bodyBold, fontSize: 22, marginTop: t.spacing.sm, paddingVertical: t.spacing.sm }}
-        />
-      </GlassCard>
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Reveal index={0}>
+              <Text variant="overline" color="primary" uppercase>Step 1 · Verify it's you</Text>
+            </Reveal>
+            <Reveal index={1}>
+              <Text variant="displayXl" style={{ marginTop: t.spacing.md }}>What's your{'\n'}number?</Text>
+            </Reveal>
+            <Reveal index={2}>
+              <Text variant="bodyLg" color="textMuted" style={{ marginTop: t.spacing.md }}>
+                We'll text a quick code to confirm it's really you. Your number stays private —
+                never shown to anyone, never spammed.
+              </Text>
+            </Reveal>
 
-      <Button label="Send me a code" disabled={!valid} loading={loading} onPress={submit} style={{ marginTop: t.spacing.xl }} />
-      <Text variant="caption" color="textFaint" center style={{ marginTop: t.spacing.md }}>
-        Dev mode: enter any number, then any code.
-      </Text>
-    </ScreenFrame>
+            <Reveal index={3} style={{ marginTop: t.spacing['2xl'] }}>
+              <PhoneField value={phone} onChangeText={setPhone} country={country} onCountryChange={setCountry} />
+            </Reveal>
+          </View>
+
+          <Reveal index={4}>
+            <Button label="Send my code" disabled={!valid} loading={loading} onPress={submit} />
+            <Text variant="caption" color="textFaint" center style={{ marginTop: t.spacing.md }}>
+              Dev mode — any number, then any code.
+            </Text>
+          </Reveal>
+        </View>
+      </KeyboardAvoidingView>
+    </CinematicBackground>
   );
 }
