@@ -37,6 +37,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth/otp" />
             <Stack.Screen name="onboarding/birth-portal" />
             <Stack.Screen name="onboarding/questionnaire" />
+            <Stack.Screen name="(tabs)" />
             <Stack.Screen name="match/daily" />
             <Stack.Screen name="match/celebration" options={{ animation: 'fade', presentation: 'transparentModal' }} />
             <Stack.Screen name="match/chat" />

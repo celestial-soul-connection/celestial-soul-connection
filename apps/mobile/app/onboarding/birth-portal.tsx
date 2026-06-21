@@ -12,9 +12,10 @@ import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { Toggle } from '../../src/components/Toggle';
+import { DateTimeField } from '../../src/components/fx/DateTimeField';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { searchPlaces, Place } from '../../src/data/placeSearch';
-import { setMyBirth } from '../../src/data/store';
+import { setMyBirth, setMyAge, setMyGender, setMySeeking } from '../../src/data/store';
 
 type Consent = { key: string; label: string; help: string; required?: boolean; default?: boolean };
 const CONSENTS: Consent[] = [
@@ -25,10 +26,24 @@ const CONSENTS: Consent[] = [
   { key: 'marketing_comms', label: 'Send me tips & offers', help: 'Optional. Withdraw anytime in Settings.', default: false },
 ];
 
+// 18+ gate: the most recent allowable birth date.
+const eighteenYearsAgo = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 18); return d; })();
+
+function ageFromDate(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dob = new Date(y, m - 1, d);
+  const now = new Date();
+  let a = now.getFullYear() - dob.getFullYear();
+  if (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) a--;
+  return a;
+}
+
 export default function BirthPortal() {
   const t = useTheme();
   const router = useRouter();
 
+  const [gender, setGender] = useState<'woman' | 'man' | 'nonbinary' | null>(null);
+  const [seeking, setSeeking] = useState<'women' | 'men' | 'everyone' | null>(null);
   const [date, setDate] = useState('');     // YYYY-MM-DD
   const [time, setTime] = useState('');     // HH:MM
   const [placeQuery, setPlaceQuery] = useState('');
@@ -57,11 +72,14 @@ export default function BirthPortal() {
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const validTime = /^\d{2}:\d{2}$/.test(time);
   const consentOk = CONSENTS.filter((c) => c.required).every((c) => consent[c.key]);
-  const canContinue = validDate && validTime && !!place && consentOk;
+  const canContinue = !!gender && !!seeking && validDate && validTime && !!place && consentOk;
 
   const submit = async () => {
-    if (!place) return;
+    if (!place || !gender || !seeking) return;
+    await setMyGender(gender);
+    await setMySeeking(seeking);
     await setMyBirth({ date, time, latitude: place.latitude, longitude: place.longitude, timezone: place.timezone, place: place.place });
+    await setMyAge(ageFromDate(date));
     router.replace('/onboarding/questionnaire');
   };
 
@@ -74,14 +92,27 @@ export default function BirthPortal() {
         truer the reading.
       </Text>
 
+      {/* Gender + who you'd like to meet */}
       <Card style={{ marginTop: t.spacing.xl }}>
-        <Labeled t={t} label="Date of birth (YYYY-MM-DD)">
-          <TextInput value={date} onChangeText={setDate} placeholder="1995-03-18" placeholderTextColor={t.colors.textFaint} keyboardType="numbers-and-punctuation" style={inputStyle(t)} />
-        </Labeled>
+        <Text variant="overline" color="textFaint" uppercase>I am a</Text>
+        <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
+          {([['woman', 'Woman'], ['man', 'Man'], ['nonbinary', 'Non-binary']] as const).map(([v, label]) => (
+            <SelectPill key={v} t={t} label={label} on={gender === v} onPress={() => setGender(v)} />
+          ))}
+        </View>
         <Divider t={t} />
-        <Labeled t={t} label="Time of birth (HH:MM, 24h)">
-          <TextInput value={time} onChangeText={setTime} placeholder="07:45" placeholderTextColor={t.colors.textFaint} keyboardType="numbers-and-punctuation" style={inputStyle(t)} />
-        </Labeled>
+        <Text variant="overline" color="textFaint" uppercase>Show me</Text>
+        <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
+          {([['women', 'Women'], ['men', 'Men'], ['everyone', 'Everyone']] as const).map(([v, label]) => (
+            <SelectPill key={v} t={t} label={label} on={seeking === v} onPress={() => setSeeking(v)} />
+          ))}
+        </View>
+      </Card>
+
+      <Card style={{ marginTop: t.spacing.md }}>
+        <DateTimeField mode="date" label="Date of birth" value={date} maximumDate={eighteenYearsAgo} onChange={(c) => setDate(c)} />
+        <Divider t={t} />
+        <DateTimeField mode="time" label="Time of birth" value={time} onChange={(c) => setTime(c)} />
         <Divider t={t} />
         <Labeled t={t} label="Place of birth">
           <TextInput value={place ? place.place : placeQuery} onChangeText={onPlaceChange} placeholder="Start typing a city…" placeholderTextColor={t.colors.textFaint} style={inputStyle(t)} />
@@ -131,6 +162,13 @@ function Labeled({ t, label, children }: { t: ReturnType<typeof useTheme>; label
       <Text variant="overline" color="textFaint" uppercase>{label}</Text>
       {children}
     </View>
+  );
+}
+function SelectPill({ t, label, on, onPress }: { t: ReturnType<typeof useTheme>; label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={{ flex: 1, backgroundColor: on ? t.colors.primary : t.colors.bgSunken, borderWidth: 1, borderColor: on ? t.colors.primary : 'transparent', borderRadius: t.radii.pill, paddingVertical: t.spacing.md, alignItems: 'center' }}>
+      <Text variant="label" color={on ? 'textOnPrimary' : 'textMuted'}>{label}</Text>
+    </Pressable>
   );
 }
 function Divider({ t }: { t: ReturnType<typeof useTheme> }) {

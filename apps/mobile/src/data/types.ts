@@ -56,10 +56,16 @@ export interface LifeIntentions {
   acknowledgedSelfManage?: boolean; // "we've discussed & agree to manage these ourselves"
 }
 
+export type Gender = 'woman' | 'man' | 'nonbinary';
+/** Who the user wants to be shown. */
+export type SeekingPref = 'women' | 'men' | 'everyone';
+
 export interface Profile {
   id: string;
   name: string;
   age: number;
+  gender?: Gender;
+  seeking?: SeekingPref;   // who THEY want to see (used for mutual filtering)
   city: string;
   photo: string;
   photos?: string[];        // additional photos (profile gallery)

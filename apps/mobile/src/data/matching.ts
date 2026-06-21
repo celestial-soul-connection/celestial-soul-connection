@@ -19,6 +19,21 @@ export interface Me {
   age?: number;
   wantsKids?: number;
   interests?: string[];
+  gender?: import('./types').Gender;
+  seeking?: import('./types').SeekingPref;
+}
+
+/** True if I want to see them AND they want to see me (mutual orientation). */
+function orientationMatch(me: Me, c: Profile): boolean {
+  const iWantThem =
+    !me.seeking || me.seeking === 'everyone' ||
+    (me.seeking === 'women' && c.gender === 'woman') ||
+    (me.seeking === 'men' && c.gender === 'man');
+  const theyWantMe =
+    !c.seeking || c.seeking === 'everyone' || !me.gender ||
+    (c.seeking === 'women' && me.gender === 'woman') ||
+    (c.seeking === 'men' && me.gender === 'man');
+  return iWantThem && theyWantMe;
 }
 
 /** Shared-interest bonus (0..1) → small weight on the score so it complements. */
@@ -33,6 +48,8 @@ const INTEREST_WEIGHT = 0.06;
 
 /** Hard dealbreaker filters — drop candidates that can't work. */
 function passesHardFilters(me: Me, c: Profile): boolean {
+  // Orientation: must be a mutual gender/seeking match.
+  if (!orientationMatch(me, c)) return false;
   // Kids: if both expressed a strong but opposite stance, drop.
   const meKids = me.psych.wantsKids;
   const themKids = c.psych.wantsKids;

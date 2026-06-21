@@ -100,7 +100,7 @@ export default function DailyMatch() {
 
   return (
     <CinematicBackground>
-      <View style={{ flex: 1, paddingTop: insets.top + t.spacing.md, paddingBottom: insets.bottom + t.spacing.md }}>
+      <View style={{ flex: 1, paddingTop: insets.top + t.spacing.md, paddingBottom: insets.bottom + 80 }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
           <View>
@@ -149,14 +149,9 @@ export default function DailyMatch() {
           </View>
         )}
 
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl }}>
-          <Pressable onPress={() => router.push('/profile/me')} style={{ paddingVertical: t.spacing.sm }}>
-            <Text variant="label" color="textMuted">◉ My profile</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/settings/theme')} style={{ paddingVertical: t.spacing.sm }}>
-            <Text variant="label" color="textMuted">✦ Style &amp; privacy</Text>
-          </Pressable>
-        </View>
+        <Pressable onPress={() => router.push('/settings/theme')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
+          <Text variant="label" color="textMuted">✦ Style &amp; privacy</Text>
+        </Pressable>
       </View>
     </CinematicBackground>
   );

@@ -37,7 +37,7 @@ export default function OtpScreen() {
     try {
       const session = await verifyOtp(phone ?? '', code);
       haptic.success();
-      router.replace(session.onboarded ? '/match/daily' : '/onboarding/birth-portal');
+      router.replace(session.onboarded ? '/(tabs)/discover' : '/onboarding/birth-portal');
     } catch {
       setVerifying(false);
       boxesRef.current?.shakeError();

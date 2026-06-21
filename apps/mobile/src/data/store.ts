@@ -85,8 +85,26 @@ export async function setMyProfile(v: MyProfileFields): Promise<void> {
   await AsyncStorage.setItem(MEPROFILE_KEY, JSON.stringify({ ...cur, ...v }));
 }
 
+const MEGENDER_KEY = '@csc/me_gender';
+const MESEEKING_KEY = '@csc/me_seeking';
+export async function getMyGender(): Promise<import('./types').Gender | undefined> {
+  return getJSON<import('./types').Gender | undefined>(MEGENDER_KEY, undefined);
+}
+export async function setMyGender(g: import('./types').Gender): Promise<void> {
+  await AsyncStorage.setItem(MEGENDER_KEY, JSON.stringify(g));
+}
+export async function getMySeeking(): Promise<import('./types').SeekingPref> {
+  return getJSON<import('./types').SeekingPref>(MESEEKING_KEY, 'everyone');
+}
+export async function setMySeeking(s: import('./types').SeekingPref): Promise<void> {
+  await AsyncStorage.setItem(MESEEKING_KEY, JSON.stringify(s));
+}
+
 async function buildMe(): Promise<Me> {
-  return { psych: await getMyPsych(), birth: await getMyBirth(), age: await getMyAge(), interests: await getMyInterests() };
+  return {
+    psych: await getMyPsych(), birth: await getMyBirth(), age: await getMyAge(),
+    interests: await getMyInterests(), gender: await getMyGender(), seeking: await getMySeeking(),
+  };
 }
 
 /**
@@ -102,6 +120,12 @@ export async function getDeck(withAstro = false): Promise<MatchResult[]> {
   const seen = new Set([...passed, ...liked, ...reported]);
   const pool = SEED_PROFILES.filter((p) => !seen.has(p.id));
   return rankCandidates(me, pool, { withAstro });
+}
+
+/** Profiles the user has liked → the "Matches" list. */
+export async function getLikedProfiles(): Promise<Profile[]> {
+  const liked = await getJSON<string[]>(LIKED_KEY, []);
+  return SEED_PROFILES.filter((p) => liked.includes(p.id));
 }
 
 /** Used by the report screen for a single pair (eager astro fusion). */
