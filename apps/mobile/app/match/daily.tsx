@@ -23,7 +23,8 @@ import { Button } from '../../src/components/Button';
 import { Chip } from '../../src/components/Chip';
 import { CompatibilityRing } from '../../src/components/CompatibilityRing';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { getDeck, passProfile, likeProfile, resetDeck } from '../../src/data/store';
+import { getDeck, passProfile, likeProfile, resetDeck, getMyBirth } from '../../src/data/store';
+import { hydrateAstro } from '../../src/data/matching';
 import { MatchResult } from '../../src/data/types';
 import { haptic } from '../../src/lib/haptics';
 
@@ -46,6 +47,27 @@ export default function DailyMatch() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Lazily fuse astrology for the current top card (never blocks the deck).
+  useEffect(() => {
+    if (!deck || !deck[index]) return;
+    const top = deck[index];
+    if (top.fused?.astroAvailable || top.fused?.astro) return; // already hydrated
+    let alive = true;
+    (async () => {
+      const birth = await getMyBirth();
+      if (!birth || !alive) return;
+      const fused = await hydrateAstro(birth, top);
+      if (!alive) return;
+      setDeck((cur) => {
+        if (!cur) return cur;
+        const copy = [...cur];
+        copy[index] = { ...copy[index], fused, score: fused.score };
+        return copy;
+      });
+    })();
+    return () => { alive = false; };
+  }, [deck, index]);
 
   const advance = () => setIndex((i) => i + 1);
 
@@ -111,7 +133,7 @@ export default function DailyMatch() {
               );
               return isTop ? (
                 <SwipeCard key={m.profile.id} onLike={() => onLike(m)} onPass={() => onPass(m)} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <MatchCardBody m={m} t={t} width={width} height={height} />
+                  <MatchCardBody m={m} t={t} width={width} height={height} onReading={() => router.push({ pathname: '/match/[id]/report', params: { id: m.profile.id } })} />
                 </SwipeCard>
               ) : card;
             })
@@ -127,15 +149,20 @@ export default function DailyMatch() {
           </View>
         )}
 
-        <Pressable onPress={() => router.push('/settings/theme')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
-          <Text variant="label" color="textMuted">✦ Style &amp; privacy</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl }}>
+          <Pressable onPress={() => router.push('/profile/me')} style={{ paddingVertical: t.spacing.sm }}>
+            <Text variant="label" color="textMuted">◉ My profile</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/settings/theme')} style={{ paddingVertical: t.spacing.sm }}>
+            <Text variant="label" color="textMuted">✦ Style &amp; privacy</Text>
+          </Pressable>
+        </View>
       </View>
     </CinematicBackground>
   );
 }
 
-function MatchCardBody({ m, t, width, height }: { m: MatchResult; t: ReturnType<typeof useTheme>; width: number; height: number }) {
+function MatchCardBody({ m, t, width, height, onReading }: { m: MatchResult; t: ReturnType<typeof useTheme>; width: number; height: number; onReading?: () => void }) {
   const cardW = width - t.spacing.xl * 2;
   const cardH = height * 0.62;
   return (
@@ -144,13 +171,25 @@ function MatchCardBody({ m, t, width, height }: { m: MatchResult; t: ReturnType<
       <LinearGradient colors={['transparent', 'rgba(10,6,16,0.5)', 'rgba(10,6,16,0.95)']} locations={[0.35, 0.65, 1]} style={StyleSheet.absoluteFill} />
 
       {/* Score ring top-right */}
-      <View style={{ position: 'absolute', top: t.spacing.lg, right: t.spacing.lg }}>
+      <View style={{ position: 'absolute', top: t.spacing.lg, right: t.spacing.lg, alignItems: 'center' }}>
         <CompatibilityRing score={m.score} size={76} />
+        {m.fused?.astro && (
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: t.radii.pill, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6 }}>
+            <Text variant="caption" color="textOnImage" onImage>psych+astro</Text>
+          </View>
+        )}
       </View>
 
       {/* Bottom info */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: t.spacing.xl }}>
-        <Text variant="displayLg" color="textOnImage" onImage>{m.profile.name}, {m.profile.age}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text variant="displayLg" color="textOnImage" onImage>{m.profile.name}, {m.profile.age}</Text>
+          {m.profile.verified?.photo && (
+            <View style={{ backgroundColor: t.colors.success, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2 }}>
+              <Text variant="caption" color="textOnPrimary">✓ verified</Text>
+            </View>
+          )}
+        </View>
         <Text variant="body" color="textOnImageMuted" onImage style={{ marginTop: 2 }}>{m.profile.blurb}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.md }}>
           {m.reasons.slice(0, 3).map((r) => (
@@ -159,6 +198,9 @@ function MatchCardBody({ m, t, width, height }: { m: MatchResult; t: ReturnType<
             </View>
           ))}
         </View>
+        <Pressable onPress={onReading} style={{ marginTop: t.spacing.md, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.lg, paddingVertical: 8 }}>
+          <Text variant="label" color="textOnImage" onImage>✦ See full reading</Text>
+        </Pressable>
       </View>
     </View>
   );

@@ -40,6 +40,9 @@ export default function RootLayout() {
             <Stack.Screen name="match/daily" />
             <Stack.Screen name="match/celebration" options={{ animation: 'fade', presentation: 'transparentModal' }} />
             <Stack.Screen name="match/chat" />
+            <Stack.Screen name="match/[id]/report" />
+            <Stack.Screen name="profile/me" />
+            <Stack.Screen name="profile/[id]" />
             <Stack.Screen name="settings/theme" />
           </Stack>
         </SafeAreaProvider>

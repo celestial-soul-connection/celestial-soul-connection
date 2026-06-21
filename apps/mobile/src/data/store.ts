@@ -1,21 +1,26 @@
 /**
  * store.ts — the on-device "backend". Screens call THIS, never the network, so
- * we can later swap the body of each function for a real FastAPI call with zero
- * screen changes. State persists via AsyncStorage.
+ * we can later swap the body of each function with zero screen changes.
  *
- * For now the "current user" has a fixed psych profile (until the questionnaire
- * is wired). Matches are computed with the REAL scoring algorithm against the
+ * PERSISTENCE: AsyncStorage for now (local). Planned migration path: local SQLite
+ * (expo-sqlite) → hosted (Supabase or similar). Because all reads/writes go
+ * through these functions, that swap is contained here — screens never change.
+ *
+ * Matches are computed with the REAL scoring/matching engine against the
  * seed-profile pool, so the deck shows genuinely ranked, explainable matches.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Profile, MatchResult, PsychProfile, Message } from './types';
-import { SEED_PROFILES, PROBES } from './seedProfiles';
-import { scorePair } from './scoring';
+import { Profile, MatchResult, PsychProfile, Message, BirthData } from './types';
+import { SEED_PROFILES } from './seedProfiles';
+import { rankCandidates, Me } from './matching';
 
 const PASSED_KEY = '@csc/passed';
 const LIKED_KEY = '@csc/liked';
+const REPORTED_KEY = '@csc/reported';
 const MSGS_KEY = '@csc/messages';
 const MEPSYCH_KEY = '@csc/me_psych';
+const MEBIRTH_KEY = '@csc/me_birth';
+const MEAGE_KEY = '@csc/me_age';
 
 /** Default "me" profile until the questionnaire overrides it. */
 const DEFAULT_ME: PsychProfile = {
@@ -42,27 +47,70 @@ export async function setMyPsych(p: PsychProfile): Promise<void> {
   await AsyncStorage.setItem(MEPSYCH_KEY, JSON.stringify(p));
 }
 
-/** Build the ranked deck: score every not-yet-seen profile, sort high→low. */
-export async function getDeck(): Promise<MatchResult[]> {
-  const me = await getMyPsych();
+export async function getMyBirth(): Promise<BirthData | undefined> {
+  return getJSON<BirthData | undefined>(MEBIRTH_KEY, undefined);
+}
+export async function setMyBirth(b: BirthData): Promise<void> {
+  await AsyncStorage.setItem(MEBIRTH_KEY, JSON.stringify(b));
+}
+export async function getMyAge(): Promise<number | undefined> {
+  return getJSON<number | undefined>(MEAGE_KEY, undefined);
+}
+export async function setMyAge(age: number): Promise<void> {
+  await AsyncStorage.setItem(MEAGE_KEY, JSON.stringify(age));
+}
+
+const MEINTERESTS_KEY = '@csc/me_interests';
+const MEINTENTIONS_KEY = '@csc/me_intentions';
+const MEPROFILE_KEY = '@csc/me_profile'; // name, bio, photos
+
+export async function getMyInterests(): Promise<string[]> {
+  return getJSON<string[]>(MEINTERESTS_KEY, []);
+}
+export async function setMyInterests(v: string[]): Promise<void> {
+  await AsyncStorage.setItem(MEINTERESTS_KEY, JSON.stringify(v));
+}
+export async function getMyIntentions(): Promise<import('./types').LifeIntentions> {
+  return getJSON(MEINTENTIONS_KEY, {});
+}
+export async function setMyIntentions(v: import('./types').LifeIntentions): Promise<void> {
+  await AsyncStorage.setItem(MEINTENTIONS_KEY, JSON.stringify(v));
+}
+export interface MyProfileFields { name?: string; bio?: string; photos?: string[]; }
+export async function getMyProfile(): Promise<MyProfileFields> {
+  return getJSON<MyProfileFields>(MEPROFILE_KEY, {});
+}
+export async function setMyProfile(v: MyProfileFields): Promise<void> {
+  const cur = await getMyProfile();
+  await AsyncStorage.setItem(MEPROFILE_KEY, JSON.stringify({ ...cur, ...v }));
+}
+
+async function buildMe(): Promise<Me> {
+  return { psych: await getMyPsych(), birth: await getMyBirth(), age: await getMyAge(), interests: await getMyInterests() };
+}
+
+/**
+ * Build the ranked deck via the matching engine. Astro fuses lazily per-card in
+ * the UI, so the deck appears instantly with the psychology ranking; pass
+ * `withAstro` for small pools (e.g. the report) to fuse eagerly.
+ */
+export async function getDeck(withAstro = false): Promise<MatchResult[]> {
+  const me = await buildMe();
   const passed = await getJSON<string[]>(PASSED_KEY, []);
   const liked = await getJSON<string[]>(LIKED_KEY, []);
-  const seen = new Set([...passed, ...liked]);
+  const reported = await getJSON<string[]>(REPORTED_KEY, []);
+  const seen = new Set([...passed, ...liked, ...reported]);
+  const pool = SEED_PROFILES.filter((p) => !seen.has(p.id));
+  return rankCandidates(me, pool, { withAstro });
+}
 
-  const ranked = SEED_PROFILES.filter((p) => !seen.has(p.id))
-    .map((profile, i) => {
-      const b = scorePair(me, profile.psych);
-      const reasons = b.dims.slice(0, 4).map((d) => ({ dim: d.label, pct: d.pct, tone: d.tone }));
-      return {
-        profile,
-        score: b.score,
-        reasons,
-        probe: PROBES[i % PROBES.length],
-      } as MatchResult;
-    })
-    .sort((a, b) => b.score - a.score);
-
-  return ranked;
+/** Used by the report screen for a single pair (eager astro fusion). */
+export async function getMatchFor(profileId: string): Promise<MatchResult | null> {
+  const me = await buildMe();
+  const profile = SEED_PROFILES.find((p) => p.id === profileId);
+  if (!profile) return null;
+  const [m] = await rankCandidates(me, [profile], { withAstro: true });
+  return m ?? null;
 }
 
 export async function passProfile(id: string): Promise<void> {
@@ -75,9 +123,17 @@ export async function likeProfile(id: string): Promise<void> {
   if (!liked.includes(id)) await AsyncStorage.setItem(LIKED_KEY, JSON.stringify([...liked, id]));
 }
 
+/** Report a user → they're filtered out of future decks (local offboard). */
+export async function reportProfile(id: string, reason: string): Promise<void> {
+  const reported = await getJSON<{ id: string; reason: string; ts: number }[]>(REPORTED_KEY + '_log', []);
+  await AsyncStorage.setItem(REPORTED_KEY + '_log', JSON.stringify([...reported, { id, reason, ts: Date.now() }]));
+  const ids = await getJSON<string[]>(REPORTED_KEY, []);
+  if (!ids.includes(id)) await AsyncStorage.setItem(REPORTED_KEY, JSON.stringify([...ids, id]));
+}
+
 /** Reset the deck (handy for demoing). */
 export async function resetDeck(): Promise<void> {
-  await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY]);
+  await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY, REPORTED_KEY]);
 }
 
 /* ----- chat ----- */

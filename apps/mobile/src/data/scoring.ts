@@ -14,7 +14,8 @@
  *  - self-expansion: complementarity-friendly (shared novelty/adventure)
  *  - emotional     : quality   (low neuroticism + high agreeableness ≈ responsiveness)
  */
-import { PsychProfile } from './types';
+import { PsychProfile, Breakdown } from './types';
+export type { Breakdown };
 
 const WEIGHTS = {
   valuesGoals: 0.28,
@@ -70,11 +71,6 @@ function emotional(a: PsychProfile, b: PsychProfile): number {
 function intentScore(a: PsychProfile, b: PsychProfile): number {
   // both must be serious; the lower of the two anchors it (a time-passer drags it down)
   return clamp01(Math.min(a.intent, b.intent) * 0.7 + ((a.intent + b.intent) / 2) * 0.3);
-}
-
-export interface Breakdown {
-  score: number;
-  dims: { key: string; label: string; pct: number; tone: 'primary' | 'success' | 'accent' | 'neutral' }[];
 }
 
 export function scorePair(me: PsychProfile, them: PsychProfile): Breakdown {

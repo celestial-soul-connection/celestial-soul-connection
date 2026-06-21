@@ -1,11 +1,10 @@
 /**
- * Birth Portal — collects birth details for matching AND demonstrates the
- * privacy-first consent model: each data use is a SEPARATE, withdrawable toggle
- * with the correct default (off where opt-in is legally required). See the
- * privacy-compliance skill — this screen is the reference implementation.
+ * Birth Portal — collects REAL birth details (date, time, place→coords via the
+ * place-search service) plus the granular consent model. Saves BirthData, then
+ * routes to the questionnaire (correct onboarding order: birth → questionnaire).
  */
-import React, { useState } from 'react';
-import { View } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenFrame } from '../../src/components/ScreenFrame';
 import { Text } from '../../src/components/Text';
@@ -14,8 +13,9 @@ import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { Toggle } from '../../src/components/Toggle';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { searchPlaces, Place } from '../../src/data/placeSearch';
+import { setMyBirth } from '../../src/data/store';
 
-/** Mirrors backend consent purposes. `required` purposes cannot be turned off. */
 type Consent = { key: string; label: string; help: string; required?: boolean; default?: boolean };
 const CONSENTS: Consent[] = [
   { key: 'birth_data_matching', label: 'Use my birth details for matching', help: 'Date, time & place of birth, encrypted and never shown to others.', required: true },
@@ -28,34 +28,77 @@ const CONSENTS: Consent[] = [
 export default function BirthPortal() {
   const t = useTheme();
   const router = useRouter();
+
+  const [date, setDate] = useState('');     // YYYY-MM-DD
+  const [time, setTime] = useState('');     // HH:MM
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [place, setPlace] = useState<Place | null>(null);
+  const [results, setResults] = useState<Place[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [consent, setConsent] = useState<Record<string, boolean>>(
     Object.fromEntries(CONSENTS.map((c) => [c.key, c.required ? true : c.default ?? false])),
   );
 
-  const canContinue = CONSENTS.filter((c) => c.required).every((c) => consent[c.key]);
+  const onPlaceChange = (q: string) => {
+    setPlaceQuery(q);
+    setPlace(null);
+    if (debounce.current) clearTimeout(debounce.current);
+    if (q.trim().length < 2) { setResults([]); return; }
+    setSearching(true);
+    debounce.current = setTimeout(async () => {
+      const r = await searchPlaces(q);
+      setResults(r);
+      setSearching(false);
+    }, 350);
+  };
+
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
+  const validTime = /^\d{2}:\d{2}$/.test(time);
+  const consentOk = CONSENTS.filter((c) => c.required).every((c) => consent[c.key]);
+  const canContinue = validDate && validTime && !!place && consentOk;
+
+  const submit = async () => {
+    if (!place) return;
+    await setMyBirth({ date, time, latitude: place.latitude, longitude: place.longitude, timezone: place.timezone, place: place.place });
+    router.replace('/onboarding/questionnaire');
+  };
 
   return (
     <ScreenFrame>
       <Chip label="Step 1 · The Birth Portal" tone="accent" />
       <Text variant="displayLg" style={{ marginTop: t.spacing.lg }}>Your cosmic coordinates</Text>
       <Text variant="body" color="textMuted" style={{ marginTop: t.spacing.sm }}>
-        We use your birth moment to map your celestial story — and your answers to
-        understand who you are. You decide exactly how each is used.
+        Your birth moment maps your celestial story. The more precise the time, the
+        truer the reading.
       </Text>
 
-      {/* Birth fields (visual placeholders — wired to forms next) */}
       <Card style={{ marginTop: t.spacing.xl }}>
-        <Field t={t} label="Date of birth" value="Tap to select — 18+ only" />
+        <Labeled t={t} label="Date of birth (YYYY-MM-DD)">
+          <TextInput value={date} onChangeText={setDate} placeholder="1995-03-18" placeholderTextColor={t.colors.textFaint} keyboardType="numbers-and-punctuation" style={inputStyle(t)} />
+        </Labeled>
         <Divider t={t} />
-        <Field t={t} label="Time of birth" value="As precise as you can" />
+        <Labeled t={t} label="Time of birth (HH:MM, 24h)">
+          <TextInput value={time} onChangeText={setTime} placeholder="07:45" placeholderTextColor={t.colors.textFaint} keyboardType="numbers-and-punctuation" style={inputStyle(t)} />
+        </Labeled>
         <Divider t={t} />
-        <Field t={t} label="Place of birth" value="City, country" />
+        <Labeled t={t} label="Place of birth">
+          <TextInput value={place ? place.place : placeQuery} onChangeText={onPlaceChange} placeholder="Start typing a city…" placeholderTextColor={t.colors.textFaint} style={inputStyle(t)} />
+          {searching && <ActivityIndicator color={t.colors.primary} style={{ marginTop: t.spacing.sm, alignSelf: 'flex-start' }} />}
+          {!place && results.map((r) => (
+            <Pressable key={r.place + r.latitude} onPress={() => { setPlace(r); setResults([]); }} style={{ paddingVertical: t.spacing.sm, borderTopWidth: 1, borderTopColor: t.colors.border }}>
+              <Text variant="body">{r.place}</Text>
+              <Text variant="caption" color="textFaint">{r.latitude.toFixed(2)}, {r.longitude.toFixed(2)} · {r.timezone}</Text>
+            </Pressable>
+          ))}
+          {place && <Chip label={`✓ ${place.timezone}`} tone="success" style={{ marginTop: t.spacing.sm }} />}
+        </Labeled>
       </Card>
 
       <Text variant="overline" color="textFaint" uppercase style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.sm }}>
         Your consent · granular & withdrawable
       </Text>
-
       {CONSENTS.map((c) => (
         <Card key={c.key} style={{ marginBottom: t.spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -64,11 +107,7 @@ export default function BirthPortal() {
               <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>{c.help}</Text>
               {c.required && <Chip label="Required for matching" tone="primary" style={{ marginTop: t.spacing.sm }} />}
             </View>
-            <Toggle
-              value={consent[c.key]}
-              disabled={c.required}
-              onChange={(v) => setConsent((s) => ({ ...s, [c.key]: v }))}
-            />
+            <Toggle value={consent[c.key]} disabled={c.required} onChange={(v) => setConsent((s) => ({ ...s, [c.key]: v }))} />
           </View>
         </Card>
       ))}
@@ -78,16 +117,19 @@ export default function BirthPortal() {
         anytime in Settings. Your birth and chat data are encrypted. We never sell your data.
       </Text>
 
-      <Button label="Create my soul blueprint" disabled={!canContinue} onPress={() => router.push('/match/daily')} />
+      <Button label="Create my soul blueprint" disabled={!canContinue} onPress={submit} />
     </ScreenFrame>
   );
 }
 
-function Field({ t, label, value }: { t: ReturnType<typeof useTheme>; label: string; value: string }) {
+function inputStyle(t: ReturnType<typeof useTheme>) {
+  return { color: t.colors.text, fontFamily: t.fontFamily.bodyMedium, fontSize: 17, marginTop: 4, paddingVertical: t.spacing.xs } as const;
+}
+function Labeled({ t, label, children }: { t: ReturnType<typeof useTheme>; label: string; children: React.ReactNode }) {
   return (
     <View style={{ paddingVertical: t.spacing.sm }}>
       <Text variant="overline" color="textFaint" uppercase>{label}</Text>
-      <Text variant="bodyLg" color="textMuted" style={{ marginTop: 4 }}>{value}</Text>
+      {children}
     </View>
   );
 }
