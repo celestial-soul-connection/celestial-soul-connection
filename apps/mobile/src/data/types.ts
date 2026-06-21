@@ -1,0 +1,136 @@
+/**
+ * Shared data types for the app. These mirror what the real FastAPI backend
+ * will return, so swapping the mock store for real API calls later needs no
+ * screen changes.
+ */
+
+/** The psychological dimensions we measure (see docs/research/compatibility-psychology.md). */
+export interface PsychProfile {
+  // Attachment (0..1 each; from ECR-style items)
+  attachmentSecure: number;
+  attachmentAnxious: number;
+  attachmentAvoidant: number;
+  // Big Five (0..1 each)
+  openness: number;
+  conscientiousness: number;
+  extraversion: number;
+  agreeableness: number;
+  neuroticism: number;
+  // Values & life goals (0..1; higher = stronger endorsement)
+  wantsKids: number;          // 0 no … 1 yes
+  religiousImportance: number;
+  ambition: number;
+  familyOrientation: number;
+  adventurousness: number;    // feeds self-expansion
+  // Conflict & communication quality (0..1; higher = healthier)
+  conflictRepair: number;
+  // Serious intent (0..1; higher = more serious)
+  intent: number;
+}
+
+/** Birth details — mirrors Karmian BirthDataRequest (date,time,lat,long,timezone). */
+export interface BirthData {
+  date: string;        // YYYY-MM-DD
+  time: string;        // HH:MM
+  latitude: number;
+  longitude: number;
+  timezone: string;    // e.g. "Asia/Kolkata"
+  place: string;       // human-readable, for display
+}
+
+/** Selectable interest tags — shared ones add a small weight to compatibility. */
+export const INTEREST_TAGS = [
+  'Travel', 'Fitness', 'Spirituality', 'Food & Cooking', 'Arts & Music',
+  'Family time', 'Career & ambition', 'Reading', 'Nature & outdoors',
+  'Movies & series', 'Fitness & sport', 'Volunteering', 'Entrepreneurship', 'Pets',
+] as const;
+export type Interest = string;
+
+/** Structured marriage-intent / life-logistics intentions (serious-intent clarity). */
+export interface LifeIntentions {
+  household?: 'shared' | 'i_lead' | 'partner_leads' | 'flexible';
+  careers?: 'both_continue' | 'one_focuses_home' | 'flexible';
+  kids?: 'yes' | 'maybe_later' | 'no' | 'open';
+  kidsCare?: 'shared' | 'i_lead' | 'partner_leads' | 'support_help';
+  finances?: 'joint' | 'separate' | 'split_shared' | 'flexible';
+  acknowledgedSelfManage?: boolean; // "we've discussed & agree to manage these ourselves"
+}
+
+export type Gender = 'woman' | 'man' | 'nonbinary';
+/** Who the user wants to be shown. */
+export type SeekingPref = 'women' | 'men' | 'everyone';
+
+export interface Profile {
+  id: string;
+  name: string;
+  age: number;
+  gender?: Gender;
+  seeking?: SeekingPref;   // who THEY want to see (used for mutual filtering)
+  city: string;
+  photo: string;
+  photos?: string[];        // additional photos (profile gallery)
+  bio?: string;
+  blurb: string;          // short tagline incl. a celestial touch (cosmetic)
+  interests?: Interest[];
+  intentions?: LifeIntentions;
+  psych: PsychProfile;
+  birth?: BirthData;
+  dealbreakers?: string[];
+  verified?: { phone: boolean; photo: boolean };
+}
+
+/** Astrology compatibility from the Karmian /compatibility/full endpoint. */
+export interface AstroResult {
+  compositePct: number;     // 0..100 overall (API's composite_pct)
+  level: string;            // e.g. "Acceptable with reservations"
+  ashtakootPoints: number;  // 0..36 Guna Milan total
+  ashtakootMax: number;     // 36
+  areas: { label: string; pct: number }[]; // per-area name + 0..100
+  doshas: string[];         // active doshas, human-readable
+  strengths: string[];
+  concerns: string[];
+  recommendation: string;   // narrative verdict
+  estimated?: boolean;      // true if from local fallback (API asleep)
+}
+
+/** Psychology dimension breakdown (also produced by scoring.ts). */
+export interface Breakdown {
+  score: number;            // 0..100
+  dims: { key: string; label: string; pct: number; tone: 'primary' | 'success' | 'accent' | 'neutral' }[];
+}
+
+/** One explainable, fused score combining psychology + astrology. */
+export interface FusedResult {
+  score: number;            // 0..100 final
+  psych: Breakdown;
+  astro: AstroResult | null;
+  astroAvailable: boolean;
+  agreement: 'aligned' | 'mixed' | 'divergent';
+  weights: { psych: number; astro: number };
+}
+
+/** A computed, explainable match. */
+export interface MatchResult {
+  profile: Profile;
+  score: number;                 // 0..100 (fused if astro available, else psych)
+  reasons: { dim: string; pct: number; tone: 'primary' | 'success' | 'accent' | 'neutral' }[];
+  probe: string;
+  fused?: FusedResult;
+}
+
+export interface Message {
+  id: string;
+  matchId: string;
+  fromMe: boolean;
+  text: string;
+  redacted: boolean;     // contact info was filtered
+  ts: number;
+}
+
+export interface Session {
+  phone: string;
+  userId: string;
+  onboarded: boolean;    // finished the questionnaire
+  psych?: PsychProfile;
+  createdAt: number;
+}

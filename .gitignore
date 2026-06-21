@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+.env
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+*.log
+
+# Fonts (binary, download per assets/fonts/README.md)
+apps/mobile/assets/fonts/*.ttf
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
