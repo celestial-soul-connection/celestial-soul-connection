@@ -66,7 +66,7 @@ export default function DailyMatch() {
         {/* Header row over the photo */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <View>
-            <Text variant="overline" color="textOnPrimary" uppercase style={{ opacity: 0.9 }}>Your alignment today</Text>
+            <Text variant="overline" color="textOnImage" onImage uppercase>Your alignment today</Text>
           </View>
           <Chip label="2 of 5 left" tone="accent" />
         </View>

@@ -11,7 +11,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { Text } from './Text';
 import { haptic } from '../lib/haptics';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'glassLight';
 
 interface Props {
   label: string;
@@ -47,7 +47,11 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
   };
 
   const textColor =
-    variant === 'primary' ? 'textOnPrimary' : variant === 'danger' ? 'textOnPrimary' : variant === 'ghost' ? 'text' : 'primary';
+    variant === 'primary' ? 'textOnPrimary'
+    : variant === 'danger' ? 'textOnPrimary'
+    : variant === 'glassLight' ? 'textOnImage'
+    : variant === 'ghost' ? 'text'
+    : 'primary';
 
   const inner = loading ? (
     <ActivityIndicator color={variant === 'primary' || variant === 'danger' ? t.colors.textOnPrimary : t.colors.primary} />
@@ -87,6 +91,8 @@ export function Button({ label, onPress, variant = 'primary', disabled, loading,
       ? { backgroundColor: t.colors.danger }
       : variant === 'secondary'
       ? { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: t.colors.primary }
+      : variant === 'glassLight'
+      ? { backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' }
       : { backgroundColor: t.colors.bgSunken };
 
   return (

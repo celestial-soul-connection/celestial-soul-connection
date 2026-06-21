@@ -35,6 +35,8 @@ export interface ThemeTokens {
     textFaint: string;     // captions / metadata
     textOnPrimary: string; // text sitting on `primary`
     textOnAccent: string;  // text sitting on `accent`
+    textOnImage: string;       // text over photos / dark scrims (always light)
+    textOnImageMuted: string;  // secondary text over photos
 
     /* Brand */
     primary: string;       // main brand action
@@ -86,6 +88,8 @@ const warmDusk: ThemeTokens = {
     textFaint: '#A18B95',
     textOnPrimary: '#FFFFFF',
     textOnAccent: '#3A1E14',
+    textOnImage: '#FFFFFF',
+    textOnImageMuted: 'rgba(255,255,255,0.82)',
 
     primary: '#E8607A',
     primaryHover: '#D44A66',
@@ -132,6 +136,8 @@ const cosmicTwilight: ThemeTokens = {
     textFaint: '#7E769E',
     textOnPrimary: '#1A1430',
     textOnAccent: '#2A1C05',
+    textOnImage: '#FFFFFF',
+    textOnImageMuted: 'rgba(255,255,255,0.82)',
 
     primary: '#C9A2FF',
     primaryHover: '#B488FF',
@@ -178,6 +184,8 @@ const sunriseTeal: ThemeTokens = {
     textFaint: '#94ADA8',
     textOnPrimary: '#FFFFFF',
     textOnAccent: '#3A2014',
+    textOnImage: '#FFFFFF',
+    textOnImageMuted: 'rgba(255,255,255,0.82)',
 
     primary: '#2DB5A8',
     primaryHover: '#1F9A8E',

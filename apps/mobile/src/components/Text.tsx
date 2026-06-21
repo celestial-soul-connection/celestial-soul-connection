@@ -7,16 +7,21 @@ import { Text as RNText, TextProps as RNTextProps, StyleSheet } from 'react-nati
 import { useTheme } from '../theme/ThemeProvider';
 import { TypographyVariant } from '../theme/tokens';
 
-type ColorToken = 'text' | 'textMuted' | 'textFaint' | 'textOnPrimary' | 'textOnAccent' | 'primary' | 'accent' | 'danger' | 'success';
+type ColorToken =
+  | 'text' | 'textMuted' | 'textFaint' | 'textOnPrimary' | 'textOnAccent'
+  | 'textOnImage' | 'textOnImageMuted'
+  | 'primary' | 'accent' | 'danger' | 'success';
 
 interface Props extends RNTextProps {
   variant?: TypographyVariant;
   color?: ColorToken;
   center?: boolean;
   uppercase?: boolean;
+  /** Adds a soft shadow so text stays legible over busy imagery. */
+  onImage?: boolean;
 }
 
-export function Text({ variant = 'body', color = 'text', center, uppercase, style, ...rest }: Props) {
+export function Text({ variant = 'body', color = 'text', center, uppercase, onImage, style, ...rest }: Props) {
   const t = useTheme();
   const scale = t.typography[variant];
   const family = t.fontFamily[scale.font as keyof typeof t.fontFamily];
@@ -33,6 +38,11 @@ export function Text({ variant = 'body', color = 'text', center, uppercase, styl
           color: t.colors[color],
           textAlign: center ? 'center' : undefined,
           textTransform: uppercase ? 'uppercase' : undefined,
+        },
+        onImage && {
+          textShadowColor: 'rgba(0,0,0,0.55)',
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 8,
         },
         style,
       ]}

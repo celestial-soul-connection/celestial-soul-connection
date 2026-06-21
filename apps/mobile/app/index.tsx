@@ -59,10 +59,11 @@ export default function Welcome() {
         colors={['rgba(0,0,0,0.35)', 'transparent']}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 160 }}
       />
+      {/* Always-dark bottom scrim so light hero text is legible in EVERY palette. */}
       <LinearGradient
-        colors={['transparent', hexA(t.colors.bg, 0.4), hexA(t.colors.bg, 0.92), t.colors.bg]}
-        locations={[0, 0.45, 0.78, 1]}
-        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: height * 0.66 }}
+        colors={['transparent', 'rgba(10,6,16,0.35)', 'rgba(10,6,16,0.78)', 'rgba(10,6,16,0.94)']}
+        locations={[0, 0.4, 0.72, 1]}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: height * 0.7 }}
       />
 
       {/* Content sits over the bottom of the hero. */}
@@ -78,21 +79,22 @@ export default function Welcome() {
         </Reveal>
 
         <Reveal index={1}>
-          <Text variant="displayXl" style={{ marginTop: t.spacing.lg }}>
+          <Text variant="displayXl" color="textOnImage" onImage style={{ marginTop: t.spacing.lg }}>
             Find the soul
           </Text>
         </Reveal>
         <Reveal index={2}>
           <Text
             variant="displayXl"
-            color="primary"
+            color="textOnImage"
+            onImage
             style={{ fontFamily: t.fontFamily.displayItalic, marginTop: -4 }}>
             that aligns with yours.
           </Text>
         </Reveal>
 
         <Reveal index={3}>
-          <Text variant="bodyLg" color="textMuted" style={{ marginTop: t.spacing.lg }}>
+          <Text variant="bodyLg" color="textOnImageMuted" onImage style={{ marginTop: t.spacing.lg }}>
             One meaningful match a day — matched on who you really are: attachment,
             values, and life goals, woven with your celestial story.
           </Text>
@@ -108,8 +110,8 @@ export default function Welcome() {
 
         <Reveal index={5} style={{ gap: t.spacing.md }}>
           <Button label="Begin your alignment" onPress={() => router.push('/onboarding/birth-portal')} />
-          <Button label="I already have an account" variant="ghost" onPress={() => router.push('/match/daily')} />
-          <Text variant="caption" color="textFaint" center style={{ marginTop: t.spacing.xs }}>
+          <Button label="I already have an account" variant="glassLight" onPress={() => router.push('/match/daily')} />
+          <Text variant="caption" color="textOnImageMuted" onImage center style={{ marginTop: t.spacing.xs }}>
             By continuing you agree to granular, withdrawable consent. You choose what we use.
           </Text>
         </Reveal>
@@ -122,7 +124,7 @@ function Trait({ t, label }: { t: ReturnType<typeof useTheme>; label: string }) 
   return (
     <View style={{ flex: 1 }}>
       <View style={{ width: 7, height: 7, borderRadius: 7, backgroundColor: t.colors.accent, marginBottom: t.spacing.sm }} />
-      <Text variant="caption" color="textMuted">{label}</Text>
+      <Text variant="caption" color="textOnImageMuted" onImage>{label}</Text>
     </View>
   );
 }
