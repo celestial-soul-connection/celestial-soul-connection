@@ -18,7 +18,8 @@ import { Text } from '../../src/components/Text';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { haptic } from '../../src/lib/haptics';
 import { SEED_PROFILES, PROBES } from '../../src/data/seedProfiles';
-import { getMessages, addMessage, isContactUnlocked, unlockContact, CONTACT_UNLOCK_FEE } from '../../src/data/store';
+import { getMessages, addMessage, isContactUnlocked, unlockContact } from '../../src/data/store';
+import { getEntitlement, contactFeeFor } from '../../src/data/billing';
 import { scan } from '../../src/data/contactFilter';
 import { Message } from '../../src/data/types';
 
@@ -34,27 +35,28 @@ export default function Chat() {
   const [draft, setDraft] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
+  const [fee, setFee] = useState(21);
   const scrollRef = useRef<ScrollView>(null);
 
   const load = useCallback(async () => {
     const m = await getMessages(matchId);
     setMessages(m);
     setUnlocked(await isContactUnlocked(matchId));
+    setFee(contactFeeFor(await getEntitlement()));
   }, [matchId]);
   useEffect(() => { load(); }, [load]);
 
   const promptUnlock = () => {
-    Alert.alert(
-      `Unlock contact with ${them.name}?`,
-      `You've both aligned. For a one-time nominal fee of ₹${CONTACT_UNLOCK_FEE} (charged to you), you can exchange direct contact details. Your consent is logged.`,
-      [
-        { text: 'Not yet', style: 'cancel' },
-        {
-          text: `Pay ₹${CONTACT_UNLOCK_FEE} & unlock`,
-          onPress: async () => { await unlockContact(matchId); haptic.success(); await load(); },
-        },
-      ],
-    );
+    const body = fee === 0
+      ? `You've both aligned. This contact reveal is free on your plan (included). Your consent is logged.`
+      : `You've both aligned. For a one-time ₹${fee} (charged to you), you can exchange direct contact details. Your consent is logged.`;
+    Alert.alert(`Unlock contact with ${them.name}?`, body, [
+      { text: 'Not yet', style: 'cancel' },
+      {
+        text: fee === 0 ? 'Unlock (free)' : `Pay ₹${fee} & unlock`,
+        onPress: async () => { await unlockContact(matchId, fee); haptic.success(); await load(); },
+      },
+    ]);
   };
 
   const send = async () => {
@@ -122,7 +124,7 @@ export default function Chat() {
           ) : (
             <Pressable onPress={promptUnlock} style={{ marginBottom: t.spacing.sm }}>
               <Text variant="caption" color="primary" center>
-                Phone numbers &amp; socials are blocked. ✦ Unlock contact (₹{CONTACT_UNLOCK_FEE})
+                Phone numbers &amp; socials are blocked. ✦ Unlock contact ({fee === 0 ? 'free on your plan' : `₹${fee}`})
               </Text>
             </Pressable>
           )}

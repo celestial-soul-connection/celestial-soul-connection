@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Profile, MatchResult, PsychProfile, Message, BirthData } from './types';
 import { SEED_PROFILES } from './seedProfiles';
 import { rankCandidates, Me } from './matching';
+import { BILLING_KEYS, recordContactCharge } from './billing';
 
 const PASSED_KEY = '@csc/passed';
 const LIKED_KEY = '@csc/liked';
@@ -87,6 +88,8 @@ export async function setMyProfile(v: MyProfileFields): Promise<void> {
 
 const MEGENDER_KEY = '@csc/me_gender';
 const MESEEKING_KEY = '@csc/me_seeking';
+const UNLOCK_KEY = '@csc/contact_unlocks';   // matchId[] whose contact is unlocked
+const UNLOCK_LOG_KEY = '@csc/contact_unlock_log';
 export async function getMyGender(): Promise<import('./types').Gender | undefined> {
   return getJSON<import('./types').Gender | undefined>(MEGENDER_KEY, undefined);
 }
@@ -175,6 +178,7 @@ const ALL_KEYS = [
   MEPSYCH_KEY, MEBIRTH_KEY, MEAGE_KEY, MEINTERESTS_KEY, MEINTENTIONS_KEY, MEPROFILE_KEY,
   MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY,
   PASSED_KEY, LIKED_KEY, REPORTED_KEY, REPORTED_KEY + '_log', MSGS_KEY,
+  UNLOCK_KEY, UNLOCK_LOG_KEY, ...BILLING_KEYS,
 ];
 
 /**
@@ -204,10 +208,7 @@ export async function deleteMyAccount(): Promise<void> {
   await AsyncStorage.multiRemove(ALL_KEYS);
 }
 
-/* ----- contact unlock (mutual match → nominal fee → logged consent) ----- */
-const UNLOCK_KEY = '@csc/contact_unlocks';   // matchId[] that are unlocked
-const UNLOCK_LOG_KEY = '@csc/contact_unlock_log';
-export const CONTACT_UNLOCK_FEE = 49; // ₹ nominal, charged to the unlocking party
+/* ----- contact unlock (mutual match → tier-based fee → logged consent) ----- */
 
 export async function isContactUnlocked(matchId: string): Promise<boolean> {
   const ids = await getJSON<string[]>(UNLOCK_KEY, []);
@@ -215,15 +216,18 @@ export async function isContactUnlocked(matchId: string): Promise<boolean> {
 }
 
 /**
- * Unlock contact for a mutual match. Records an append-only consent/payment log
- * entry (who paid, the fee, timestamp) — the audit trail required by the product
- * rules. Real payment integration slots in here later; today it logs intent.
+ * Unlock contact for a mutual match. `fee` is the tier-resolved price (see
+ * billing.contactFeeFor — free tier ₹21, paid first 5 free then ₹21). Records an
+ * append-only consent/payment log entry (fee, payer, timestamp) — the audit trail
+ * required by the product rules — and bumps the global reveal counter so the
+ * paid free-tier allowance is tracked. Real gateway call slots in here later.
  */
-export async function unlockContact(matchId: string): Promise<void> {
+export async function unlockContact(matchId: string, fee: number): Promise<void> {
   const log = await getJSON<{ matchId: string; fee: number; payer: 'me'; ts: number }[]>(UNLOCK_LOG_KEY, []);
-  await AsyncStorage.setItem(UNLOCK_LOG_KEY, JSON.stringify([...log, { matchId, fee: CONTACT_UNLOCK_FEE, payer: 'me', ts: Date.now() }]));
+  await AsyncStorage.setItem(UNLOCK_LOG_KEY, JSON.stringify([...log, { matchId, fee, payer: 'me', ts: Date.now() }]));
   const ids = await getJSON<string[]>(UNLOCK_KEY, []);
   if (!ids.includes(matchId)) await AsyncStorage.setItem(UNLOCK_KEY, JSON.stringify([...ids, matchId]));
+  await recordContactCharge();
 }
 
 /* ----- chat ----- */

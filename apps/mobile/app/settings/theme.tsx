@@ -3,14 +3,15 @@
  * and a FEEL (atmosphere & motion). Everything restyles instantly and persists.
  * This is how we converge on a look you love without rebuilding code each time.
  */
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, View, ScrollView, Share, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
 import { Text } from '../../src/components/Text';
 import { exportMyData, deleteMyAccount } from '../../src/data/store';
+import { getEntitlement, Entitlement } from '../../src/data/billing';
 import { useTheme, useThemeControls } from '../../src/theme/ThemeProvider';
 import { PALETTES, ThemeName } from '../../src/theme/palettes';
 import { FeelName } from '../../src/theme/feel';
@@ -28,6 +29,14 @@ export default function StyleStudio() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { themeName, setTheme, available, feelName, setFeel, availableFeels } = useThemeControls();
+  const [ent, setEnt] = useState<Entitlement | null>(null);
+  useFocusEffect(useCallback(() => { (async () => setEnt(await getEntitlement()))(); }, []));
+
+  const membershipLine = ent?.subscription
+    ? 'Active subscription'
+    : ent?.inTrial
+      ? `Free week · ${ent.trialDaysLeft} day${ent.trialDaysLeft === 1 ? '' : 's'} left`
+      : 'Free account';
 
   const onExport = async () => {
     const json = await exportMyData();
@@ -64,6 +73,18 @@ export default function StyleStudio() {
           Mix a colour palette with an atmosphere, and manage how your data is used.
           Everything updates live.
         </Text>
+
+        {/* ---- MEMBERSHIP ---- */}
+        <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.sm }}>Membership</Text>
+        <Pressable onPress={() => router.push('/paywall')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: t.spacing.md }}>
+          <View style={{ flex: 1, paddingRight: t.spacing.md }}>
+            <Text variant="title" color="primary">{membershipLine}</Text>
+            <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
+              {ent?.subscription ? 'Manage or change your plan' : 'See plans — ₹99 or ₹199 per week'}
+            </Text>
+          </View>
+          <Text variant="title" color="textFaint">›</Text>
+        </Pressable>
 
         {/* ---- PALETTE ---- flat selectable rows, no box ---- */}
         <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.xs }}>Colour palette</Text>
