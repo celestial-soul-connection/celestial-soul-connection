@@ -7,6 +7,7 @@ import React from 'react';
 import { Pressable, View, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
 import { GlassCard } from '../../src/components/fx/GlassCard';
 import { Text } from '../../src/components/Text';
@@ -24,6 +25,7 @@ const FEEL_DESC: Record<FeelName, string> = {
 
 export default function StyleStudio() {
   const t = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { themeName, setTheme, available, feelName, setFeel, availableFeels } = useThemeControls();
 
@@ -32,11 +34,16 @@ export default function StyleStudio() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: insets.top + t.spacing.lg, paddingBottom: insets.bottom + t.spacing['2xl'], paddingHorizontal: t.spacing.xl }}>
-        <Text variant="overline" color="textFaint" uppercase>Style studio</Text>
-        <Text variant="displayLg" style={{ marginTop: t.spacing.xs }}>Make it yours</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, marginBottom: t.spacing.md }}>
+          <Pressable onPress={() => router.back()} hitSlop={12}>
+            <Text variant="headline" color="textMuted">‹</Text>
+          </Pressable>
+          <Text variant="overline" color="textFaint" uppercase>Settings</Text>
+        </View>
+        <Text variant="displayLg" style={{ marginTop: t.spacing.xs }}>Style &amp; privacy</Text>
         <Text variant="body" color="textMuted" style={{ marginTop: t.spacing.sm }}>
-          Mix a colour palette with an atmosphere. Everything updates live — find the
-          vibe you love.
+          Mix a colour palette with an atmosphere, and manage how your data is used.
+          Everything updates live.
         </Text>
 
         {/* ---- PALETTE ---- */}
@@ -89,8 +96,22 @@ export default function StyleStudio() {
           })}
         </View>
 
+        {/* ---- PRIVACY & DATA ---- */}
+        <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.md }}>Privacy &amp; data</Text>
+        <GlassCard>
+          <SettingRow t={t} label="Review my consent" help="See & withdraw what you've agreed to" onPress={() => router.push('/onboarding/birth-portal')} />
+          <Hair t={t} />
+          <SettingRow t={t} label="Export my data" help="Download everything we hold about you" onPress={() => {}} />
+          <Hair t={t} />
+          <SettingRow t={t} label="Delete my account" help="Permanently erase your data" danger onPress={() => {}} />
+        </GlassCard>
+        <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.md }}>
+          Birth & chat data are encrypted. Consent is logged to an append-only record. We never
+          sell your data. DPDP 2023 · GDPR · CCPA.
+        </Text>
+
         <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.xl }}>
-          Your choices are saved on this device. Tell me which combination you like and
+          Your style choices are saved on this device. Tell me which combination you like and
           I’ll make it the default.
         </Text>
       </ScrollView>
@@ -98,6 +119,20 @@ export default function StyleStudio() {
   );
 }
 
+function SettingRow({ t, label, help, danger, onPress }: { t: ReturnType<typeof useTheme>; label: string; help: string; danger?: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={() => { haptic.light(); onPress(); }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: t.spacing.sm }}>
+      <View style={{ flex: 1, paddingRight: t.spacing.md }}>
+        <Text variant="title" color={danger ? 'danger' : 'text'}>{label}</Text>
+        <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>{help}</Text>
+      </View>
+      <Text variant="title" color="textFaint">›</Text>
+    </Pressable>
+  );
+}
+function Hair({ t }: { t: ReturnType<typeof useTheme> }) {
+  return <View style={{ height: 1, backgroundColor: t.colors.border, marginVertical: t.spacing.xs }} />;
+}
 function Sw({ color, ring }: { color: string; ring?: string }) {
   return <View style={{ width: 30, height: 30, borderRadius: 30, backgroundColor: color, borderWidth: ring ? 1 : 0, borderColor: ring }} />;
 }

@@ -100,6 +100,14 @@ export async function setMySeeking(s: import('./types').SeekingPref): Promise<vo
   await AsyncStorage.setItem(MESEEKING_KEY, JSON.stringify(s));
 }
 
+const MEMARITAL_KEY = '@csc/me_marital';
+export async function getMyMaritalStatus(): Promise<import('./types').MaritalStatus | undefined> {
+  return getJSON<import('./types').MaritalStatus | undefined>(MEMARITAL_KEY, undefined);
+}
+export async function setMyMaritalStatus(s: import('./types').MaritalStatus): Promise<void> {
+  await AsyncStorage.setItem(MEMARITAL_KEY, JSON.stringify(s));
+}
+
 async function buildMe(): Promise<Me> {
   return {
     psych: await getMyPsych(), birth: await getMyBirth(), age: await getMyAge(),

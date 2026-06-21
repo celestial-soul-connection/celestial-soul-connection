@@ -10,6 +10,7 @@ import { View, ScrollView, ActivityIndicator, Share, Pressable } from 'react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { CinematicBackground } from '../../../src/components/fx/CinematicBackground';
 import { GlassCard } from '../../../src/components/fx/GlassCard';
 import { Reveal } from '../../../src/components/fx/Reveal';
@@ -62,30 +63,41 @@ export default function Report() {
 
   const heat = (p: number) => (p >= 85 ? t.colors.heat3 : p >= 70 ? t.colors.heat2 : p >= 50 ? t.colors.heat1 : t.colors.heat0);
 
+  const serious = isSerious(computeIntentSignal({ psych: m.profile.psych, hasPhoto: !!m.profile.photo, hasBio: !!m.profile.bio, hasBirth: !!m.profile.birth, interestCount: m.profile.interests?.length ?? 0, intentions: m.profile.intentions ?? {} }));
+
   return (
     <CinematicBackground>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + t.spacing.sm, paddingBottom: insets.bottom + t.spacing.xl, paddingHorizontal: t.spacing.xl }}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={{ marginBottom: t.spacing.sm }}><Text variant="headline" color="textMuted">‹</Text></Pressable>
-
-        {/* Header: fused score */}
-        <Reveal index={0}>
-          <View style={{ alignItems: 'center' }}>
-            <Image source={m.profile.photo} style={{ width: 88, height: 88, borderRadius: 88, marginBottom: t.spacing.md }} contentFit="cover" />
-            <Text variant="overline" color="textFaint" uppercase>Compatibility reading</Text>
-            <Text variant="displayLg" center>You & {m.profile.name}</Text>
-            <View style={{ marginTop: t.spacing.md }}><CompatibilityRing score={f.score} size={104} /></View>
-            <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: t.spacing.md }}>
-              <Chip label={astro ? 'Psychology + Astrology' : 'Psychology-led'} tone="primary" />
-              {isSerious(computeIntentSignal({ psych: m.profile.psych, hasPhoto: !!m.profile.photo, hasBio: !!m.profile.bio, hasBirth: !!m.profile.birth, interestCount: m.profile.interests?.length ?? 0, intentions: m.profile.intentions ?? {} })) && (
-                <Chip label="✦ Serious about connection" tone="success" />
-              )}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + t.spacing.xl }}>
+        {/* Hero header — full-bleed photo with the fused score over it */}
+        <View style={{ height: 360 }}>
+          <Image source={m.profile.photo} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={300} />
+          <LinearGradient colors={['rgba(8,5,14,0.25)', 'rgba(8,5,14,0.4)', 'rgba(8,5,14,0.96)']} locations={[0, 0.45, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          <Pressable onPress={() => router.back()} hitSlop={12} style={{ position: 'absolute', top: insets.top + t.spacing.sm, left: t.spacing.lg }}>
+            <Text variant="headline" color="textOnImage" onImage>‹</Text>
+          </Pressable>
+          <View style={{ position: 'absolute', left: t.spacing.xl, right: t.spacing.xl, bottom: t.spacing.xl, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, paddingRight: t.spacing.md }}>
+              <Text variant="overline" color="textOnImageMuted" onImage uppercase>Compatibility reading</Text>
+              <Text variant="displayLg" color="textOnImage" onImage style={{ marginTop: 4 }}>You & {m.profile.name}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
+                  <Text variant="label" color="textOnImage" onImage>{astro ? 'Psych + Astro' : 'Psychology-led'}</Text>
+                </View>
+                {serious && (
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
+                    <Text variant="label" color="textOnImage" onImage>✦ Serious</Text>
+                  </View>
+                )}
+              </View>
             </View>
+            <CompatibilityRing score={f.score} size={96} />
           </View>
-        </Reveal>
+        </View>
 
+        <View style={{ paddingHorizontal: t.spacing.xl, paddingTop: t.spacing.xl }}>
         {/* Agreement line — the honest framing */}
         <Reveal index={1}>
-          <GlassCard glow style={{ marginTop: t.spacing.xl }}>
+          <GlassCard glow>
             <Text variant="bodyLg" center style={{ fontFamily: t.fontFamily.displayItalic }}>{agreementCopy(f)}</Text>
           </GlassCard>
         </Reveal>
@@ -139,34 +151,32 @@ export default function Report() {
           </Reveal>
         )}
 
-        {/* Life intentions */}
+        {/* Life intentions — chip vitals, not a box */}
         {!!intentChips.length && (
           <Reveal index={4}>
-            <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.md }}>Life intentions</Text>
-            <GlassCard>
-              <Text variant="caption" color="textMuted" style={{ marginBottom: t.spacing.md }}>How {m.profile.name} sees managing a life together:</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
-                {intentChips.map((c) => <Chip key={c} label={c} tone="primary" />)}
-              </View>
-              {m.profile.intentions?.acknowledgedSelfManage && (
-                <Text variant="caption" color="success" style={{ marginTop: t.spacing.md }}>
-                  ✓ Open to a shared intentions agreement — you can align on these together before committing.
-                </Text>
-              )}
-            </GlassCard>
+            <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.sm }}>Life intentions</Text>
+            <Text variant="caption" color="textMuted" style={{ marginBottom: t.spacing.md }}>How {m.profile.name} sees managing a life together:</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
+              {intentChips.map((c) => <Chip key={c} label={c} tone="primary" />)}
+            </View>
+            {m.profile.intentions?.acknowledgedSelfManage && (
+              <Text variant="caption" color="success" style={{ marginTop: t.spacing.md }}>
+                ✓ Open to a shared intentions agreement — align on these together before committing.
+              </Text>
+            )}
           </Reveal>
         )}
 
-        {/* Background-check disclaimer */}
+        {/* Background-check disclaimer — accent rule, not a box */}
         <Reveal index={5}>
-          <GlassCard style={{ marginTop: t.spacing.xl, borderColor: t.colors.accent }}>
-            <Text variant="label" color="accent">Important — compatibility ≠ a background check</Text>
+          <View style={{ marginTop: t.spacing['2xl'], borderLeftWidth: 2, borderLeftColor: t.colors.accent, paddingLeft: t.spacing.lg }}>
+            <Text variant="label" color="accent">Compatibility ≠ a background check</Text>
             <Text variant="caption" color="textMuted" style={{ marginTop: t.spacing.sm }}>
               Even a high score reflects only psychological & astrological fit. It does NOT verify
               identity, history, or intentions. Always do your own background verification before
               meeting or committing. Dedicated background-verification services are coming to the app.
             </Text>
-          </GlassCard>
+          </View>
         </Reveal>
 
         <Reveal index={6}>
@@ -179,6 +189,7 @@ export default function Report() {
             <Button label="Open a thread" variant="secondary" onPress={() => router.push({ pathname: '/match/chat', params: { id: m.profile.id } })} />
           </View>
         </Reveal>
+        </View>
       </ScrollView>
     </CinematicBackground>
   );
