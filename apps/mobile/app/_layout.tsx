@@ -1,0 +1,42 @@
+/**
+ * Root layout — loads brand fonts, wraps the app in ThemeProvider + safe area,
+ * and configures the navigation stack. The status bar follows the active theme mode.
+ */
+import React, { useEffect } from 'react';
+import { useFonts } from 'expo-font';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
+import { FONT_ASSETS } from '../src/theme/fonts';
+
+function StatusBarThemed() {
+  const t = useTheme();
+  return <StatusBar style={t.mode === 'dark' ? 'light' : 'dark'} />;
+}
+
+export default function RootLayout() {
+  const [loaded, error] = useFonts(FONT_ASSETS);
+  useEffect(() => {
+    if (error) console.warn('Font load error (add .ttf files to assets/fonts):', error);
+  }, [error]);
+
+  // Keep splash until fonts load; allow render on error so dev isn't blocked.
+  if (!loaded && !error) return null;
+
+  return (
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <StatusBarThemed />
+        <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding/birth-portal" />
+          <Stack.Screen name="match/daily" />
+          <Stack.Screen name="match/celebration" options={{ animation: 'fade', presentation: 'transparentModal' }} />
+          <Stack.Screen name="match/chat" />
+          <Stack.Screen name="settings/theme" />
+        </Stack>
+      </SafeAreaProvider>
+    </ThemeProvider>
+  );
+}

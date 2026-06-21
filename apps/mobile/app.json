@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Celestial Soul Connection",
+    "slug": "celestial-soul-connection",
+    "scheme": "csc",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#FFF6F2",
+      "resizeMode": "contain"
+    },
+    "ios": { "supportsTablet": false, "bundleIdentifier": "com.csc.app" },
+    "android": { "package": "com.csc.app" },
+    "plugins": ["expo-router", "expo-font"],
+    "experiments": { "typedRoutes": true }
+  }
+}
