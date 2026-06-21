@@ -204,6 +204,28 @@ export async function deleteMyAccount(): Promise<void> {
   await AsyncStorage.multiRemove(ALL_KEYS);
 }
 
+/* ----- contact unlock (mutual match → nominal fee → logged consent) ----- */
+const UNLOCK_KEY = '@csc/contact_unlocks';   // matchId[] that are unlocked
+const UNLOCK_LOG_KEY = '@csc/contact_unlock_log';
+export const CONTACT_UNLOCK_FEE = 49; // ₹ nominal, charged to the unlocking party
+
+export async function isContactUnlocked(matchId: string): Promise<boolean> {
+  const ids = await getJSON<string[]>(UNLOCK_KEY, []);
+  return ids.includes(matchId);
+}
+
+/**
+ * Unlock contact for a mutual match. Records an append-only consent/payment log
+ * entry (who paid, the fee, timestamp) — the audit trail required by the product
+ * rules. Real payment integration slots in here later; today it logs intent.
+ */
+export async function unlockContact(matchId: string): Promise<void> {
+  const log = await getJSON<{ matchId: string; fee: number; payer: 'me'; ts: number }[]>(UNLOCK_LOG_KEY, []);
+  await AsyncStorage.setItem(UNLOCK_LOG_KEY, JSON.stringify([...log, { matchId, fee: CONTACT_UNLOCK_FEE, payer: 'me', ts: Date.now() }]));
+  const ids = await getJSON<string[]>(UNLOCK_KEY, []);
+  if (!ids.includes(matchId)) await AsyncStorage.setItem(UNLOCK_KEY, JSON.stringify([...ids, matchId]));
+}
+
 /* ----- chat ----- */
 export async function getMessages(matchId: string): Promise<Message[]> {
   const all = await getJSON<Record<string, Message[]>>(MSGS_KEY, {});
