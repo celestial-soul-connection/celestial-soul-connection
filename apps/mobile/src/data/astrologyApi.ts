@@ -34,13 +34,27 @@ function mapResponse(d: any): AstroResult {
     pct: Math.round(areasObj[label]?.score_pct ?? 0),
   }));
   const ak = d.ashtakoota ?? {};
-  // Collect active doshas (flags that are truthy / "present").
+  // Collect ACTIVE doshas. The API shape is e.g.
+  //   mangal_dosha: { person1: bool, person2: bool, compatible: bool, severity: ... }
+  // A dosha is "active/concerning" when it affects either person AND is not
+  // marked compatible (i.e. not cancelled).
   const doshaKeys = ['mangal_dosha', 'nadi_dosha', 'bhakoot_dosha', 'rajju_dosha', 'stri_dirgha_dosha', 'veda_dosha'];
   const doshas: string[] = [];
   for (const k of doshaKeys) {
     const v = ak[k];
-    const active = typeof v === 'object' ? (v.present ?? v.active) : v;
-    if (active) doshas.push(k.replace(/_/g, ' ').replace('dosha', 'Dosha'));
+    if (!v) continue;
+    let active = false;
+    if (typeof v === 'object') {
+      const affects = v.person1 || v.person2 || v.present || v.active || v.exists;
+      const cancelled = v.compatible === true || v.cancelled === true;
+      active = !!affects && !cancelled;
+    } else {
+      active = !!v;
+    }
+    if (active) {
+      const name = k.replace(/_/g, ' ').replace(/\bdosha\b/, 'Dosha').replace(/^\w/, (c) => c.toUpperCase());
+      doshas.push(name);
+    }
   }
   return {
     compositePct: Math.round(d.composite_pct ?? ak.percentage ?? 0),

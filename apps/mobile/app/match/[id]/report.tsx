@@ -20,6 +20,7 @@ import { CompatibilityRing } from '../../../src/components/CompatibilityRing';
 import { useTheme } from '../../../src/theme/ThemeProvider';
 import { getMatchFor } from '../../../src/data/store';
 import { agreementCopy } from '../../../src/data/fusion';
+import { computeIntentSignal, isSerious } from '../../../src/data/intent';
 import { MatchResult } from '../../../src/data/types';
 
 export default function Report() {
@@ -73,7 +74,12 @@ export default function Report() {
             <Text variant="overline" color="textFaint" uppercase>Compatibility reading</Text>
             <Text variant="displayLg" center>You & {m.profile.name}</Text>
             <View style={{ marginTop: t.spacing.md }}><CompatibilityRing score={f.score} size={104} /></View>
-            <Chip label={astro ? 'Psychology + Astrology' : 'Psychology-led'} tone="primary" style={{ marginTop: t.spacing.md }} />
+            <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: t.spacing.md }}>
+              <Chip label={astro ? 'Psychology + Astrology' : 'Psychology-led'} tone="primary" />
+              {isSerious(computeIntentSignal({ psych: m.profile.psych, hasPhoto: !!m.profile.photo, hasBio: !!m.profile.bio, hasBirth: !!m.profile.birth, interestCount: m.profile.interests?.length ?? 0, intentions: m.profile.intentions ?? {} })) && (
+                <Chip label="✦ Serious about connection" tone="success" />
+              )}
+            </View>
           </View>
         </Reveal>
 
