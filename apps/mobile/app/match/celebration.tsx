@@ -131,7 +131,7 @@ export default function Celebration() {
         </Animated.View>
 
         <View style={{ width: '100%', gap: t.spacing.md, marginTop: t.spacing['3xl'] }}>
-          <Button label="Send the first soul probe" onPress={() => router.push('/match/chat')} />
+          <Button label="Send the first soul probe" onPress={() => router.push({ pathname: '/match/chat', params: { id: them.id } })} />
           <Pressable onPress={() => router.push('/match/daily')} style={{ alignItems: 'center', paddingVertical: t.spacing.sm }}>
             <Text variant="label" color="textMuted">Maybe later</Text>
           </Pressable>

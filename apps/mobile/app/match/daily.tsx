@@ -122,7 +122,7 @@ export default function DailyMatch() {
         {!limitReached && remaining.length > 0 && (
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl, paddingHorizontal: t.spacing.xl }}>
             <RoundBtn t={t} label="✕" tone="danger" onPress={() => { haptic.medium(); onPass(remaining[0]); }} />
-            <RoundBtn t={t} label="✦" tone="primary" big onPress={() => router.push('/match/chat')} />
+            <RoundBtn t={t} label="✦" tone="primary" big onPress={() => router.push({ pathname: '/match/chat', params: { id: remaining[0].profile.id } })} />
             <RoundBtn t={t} label="♥" tone="success" onPress={() => { haptic.medium(); onLike(remaining[0]); }} />
           </View>
         )}
