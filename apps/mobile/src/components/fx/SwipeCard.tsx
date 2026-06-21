@@ -7,7 +7,7 @@
  * Works fully in Expo Go — no Skia/Lottie needed.
  */
 import React from 'react';
-import { StyleSheet, useWindowDimensions, ViewStyle } from 'react-native';
+import { StyleSheet, useWindowDimensions, ViewStyle, StyleProp } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle, useSharedValue, withSpring, withTiming, runOnJS, interpolate, Extrapolation,
@@ -20,7 +20,7 @@ interface Props {
   children: React.ReactNode;
   onLike?: () => void;
   onPass?: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function SwipeCard({ children, onLike, onPass, style }: Props) {

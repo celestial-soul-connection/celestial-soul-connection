@@ -12,7 +12,7 @@ import { View, StyleSheet, useWindowDimensions, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import Animated, {
   useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming, withRepeat, Easing,
 } from 'react-native-reanimated';
@@ -21,9 +21,19 @@ import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { haptic } from '../../src/lib/haptics';
+import { SEED_PROFILES } from '../../src/data/seedProfiles';
+import { scorePair } from '../../src/data/scoring';
+import { PsychProfile } from '../../src/data/types';
 
 const ME = 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&auto=format&fit=crop';
-const THEM = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400&auto=format&fit=crop';
+
+// Mirror of the default "me" psych so the displayed score matches the deck.
+const DEFAULT_ME_FOR_DISPLAY: PsychProfile = {
+  attachmentSecure: 0.8, attachmentAnxious: 0.25, attachmentAvoidant: 0.2,
+  openness: 0.75, conscientiousness: 0.72, extraversion: 0.5, agreeableness: 0.8, neuroticism: 0.3,
+  wantsKids: 0.8, religiousImportance: 0.45, ambition: 0.72, familyOrientation: 0.78,
+  adventurousness: 0.7, conflictRepair: 0.8, intent: 0.92,
+};
 
 function rng(seed: number) {
   let s = seed % 2147483647; if (s <= 0) s += 2147483646;
@@ -51,6 +61,11 @@ export default function Celebration() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+
+  // Resolve the real matched profile + score so the moment reflects who it is.
+  const them = SEED_PROFILES.find((p) => p.id === id) ?? SEED_PROFILES[0];
+  const score = scorePair(DEFAULT_ME_FOR_DISPLAY, them.psych).score;
 
   const meX = useSharedValue(-70);
   const themX = useSharedValue(70);
@@ -98,16 +113,16 @@ export default function Celebration() {
               <Avatar uri={ME} t={t} />
             </Animated.View>
             <Animated.View style={themStyle}>
-              <Avatar uri={THEM} t={t} />
+              <Avatar uri={them.photo} t={t} />
             </Animated.View>
           </View>
         </View>
 
         <Animated.View style={[{ alignItems: 'center' }, titleStyle]}>
           <Text variant="overline" color="accent" uppercase>A mutual alignment</Text>
-          <Text variant="displayXl" center style={{ marginTop: t.spacing.sm }}>You & Aria</Text>
+          <Text variant="displayXl" center style={{ marginTop: t.spacing.sm }}>You & {them.name}</Text>
           <Text variant="displayLg" color="primary" center style={{ fontFamily: t.fontFamily.displayItalic, marginTop: -2 }}>
-            are 89% aligned
+            are {score}% aligned
           </Text>
           <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.lg, maxWidth: 300 }}>
             Two secure hearts, shared values, and room to grow together. Begin with a
