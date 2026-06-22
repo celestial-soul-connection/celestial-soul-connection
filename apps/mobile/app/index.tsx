@@ -9,7 +9,7 @@
  * Swap HERO_IMAGE for your own brand photography — that single change carries
  * most of the "premium" weight.
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, useWindowDimensions, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +22,7 @@ import { Text } from '../src/components/Text';
 import { Button } from '../src/components/Button';
 import { Chip } from '../src/components/Chip';
 import { useTheme } from '../src/theme/ThemeProvider';
+import { getSession } from '../src/data/session';
 
 // Swap this for your own brand hero. A warm, intimate, cinematic couple/portrait.
 const HERO_IMAGE =
@@ -32,6 +33,16 @@ export default function Welcome() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+
+  // Returning-user gate: skip the welcome hero if a session already exists.
+  const [checked, setChecked] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const s = await getSession();
+      if (s) router.replace(s.onboarded ? '/(tabs)/discover' : '/onboarding/birth-portal');
+      else setChecked(true);
+    })();
+  }, []);
 
   // Ken Burns: slow scale + drift on the hero image.
   const kb = useSharedValue(0);
@@ -46,6 +57,9 @@ export default function Welcome() {
       { translateY: kb.value * -t.feel.hero.parallax * 0.6 },
     ],
   }));
+
+  // Avoid flashing the welcome hero while we check for an existing session.
+  if (!checked) return <CinematicBackground><View style={{ flex: 1 }} /></CinematicBackground>;
 
   return (
     <CinematicBackground>
