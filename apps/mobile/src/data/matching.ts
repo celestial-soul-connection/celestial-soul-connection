@@ -7,7 +7,7 @@
  * (no training data yet = cold start); isolated so a learned ranker can replace
  * the weighting later — see LEARNED-RANKER SEAM.
  */
-import { Profile, PsychProfile, BirthData, MatchResult, FusedResult } from './types';
+import { Profile, PsychProfile, BirthData, MatchResult, FusedResult, CompatibilityMode, weightsForMode } from './types';
 import { scorePair } from './scoring';
 import { fuseScores } from './fusion';
 import { getAstroCompatibility } from './astrologyApi';
@@ -21,6 +21,8 @@ export interface Me {
   interests?: string[];
   gender?: import('./types').Gender;
   seeking?: import('./types').SeekingPref;
+  /** The user's chosen compatibility lens — drives the fusion weights. */
+  compatMode?: CompatibilityMode;
 }
 
 /** True if I want to see them AND they want to see me (mutual orientation). */
@@ -100,7 +102,7 @@ export async function rankCandidates(me: Me, pool: Profile[], opts?: { withAstro
     // Fuse astrology for all (used for small pools / report). Parallel + tolerant.
     await Promise.all(
       base.map(async (m) => {
-        const fused = await hydrateAstro(me.birth, m);
+        const fused = await hydrateAstro(me.birth, m, me.compatMode);
         m.fused = fused;
         m.score = fused.score;
       }),
@@ -112,8 +114,9 @@ export async function rankCandidates(me: Me, pool: Profile[], opts?: { withAstro
 
 /** Fetch astrology for one match and return the fused result (non-blocking use).
  *  `meBirth` is the current user's birth data; the psychology Breakdown is reused
- *  from the already-ranked match. */
-export async function hydrateAstro(meBirth: BirthData | undefined, m: MatchResult): Promise<FusedResult> {
+ *  from the already-ranked match. `mode` is the user's chosen compatibility lens,
+ *  which sets the psych/astro weights of the blend. */
+export async function hydrateAstro(meBirth: BirthData | undefined, m: MatchResult, mode?: CompatibilityMode): Promise<FusedResult> {
   const astro = await getAstroCompatibility(meBirth, m.profile.birth);
-  return fuseScores(m.fused!.psych, astro);
+  return fuseScores(m.fused!.psych, astro, mode ? weightsForMode(mode) : undefined);
 }

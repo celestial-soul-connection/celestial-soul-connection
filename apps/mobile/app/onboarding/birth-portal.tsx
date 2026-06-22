@@ -15,8 +15,9 @@ import { Toggle } from '../../src/components/Toggle';
 import { DateTimeField } from '../../src/components/fx/DateTimeField';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { searchPlaces, Place } from '../../src/data/placeSearch';
-import { MARITAL_OPTIONS, MaritalStatus } from '../../src/data/types';
-import { setMyBirth, setMyAge, setMyGender, setMySeeking, setMyMaritalStatus } from '../../src/data/store';
+import { MARITAL_OPTIONS, MaritalStatus, CompatibilityMode, DEFAULT_COMPAT_MODE } from '../../src/data/types';
+import { CompatModeChooser } from '../../src/components/CompatModeChooser';
+import { setMyBirth, setMyAge, setMyGender, setMySeeking, setMyMaritalStatus, setMyCompatMode } from '../../src/data/store';
 
 type Consent = { key: string; label: string; help: string; required?: boolean; default?: boolean };
 const CONSENTS: Consent[] = [
@@ -46,6 +47,7 @@ export default function BirthPortal() {
   const [gender, setGender] = useState<'woman' | 'man' | 'nonbinary' | null>(null);
   const [seeking, setSeeking] = useState<'women' | 'men' | 'everyone' | null>(null);
   const [marital, setMarital] = useState<MaritalStatus | null>(null);
+  const [compatMode, setCompatMode] = useState<CompatibilityMode>(DEFAULT_COMPAT_MODE);
   const [date, setDate] = useState('');     // YYYY-MM-DD
   const [time, setTime] = useState('');     // HH:MM
   const [placeQuery, setPlaceQuery] = useState('');
@@ -81,6 +83,7 @@ export default function BirthPortal() {
     await setMyGender(gender);
     await setMySeeking(seeking);
     await setMyMaritalStatus(marital);
+    await setMyCompatMode(compatMode);
     await setMyBirth({ date, time, latitude: place.latitude, longitude: place.longitude, timezone: place.timezone, place: place.place });
     await setMyAge(ageFromDate(date));
     router.replace('/onboarding/questionnaire');
@@ -138,6 +141,12 @@ export default function BirthPortal() {
           ))}
           {place && <Chip label={`✓ ${place.timezone}`} tone="success" style={{ marginTop: t.spacing.sm }} />}
         </Labeled>
+      </Card>
+
+      {/* How compatibility is computed — a first-class choice that maps people by lens */}
+      <Card style={{ marginTop: t.spacing.md }}>
+        <Text variant="overline" color="textFaint" uppercase style={{ marginBottom: t.spacing.sm }}>How should we match you</Text>
+        <CompatModeChooser value={compatMode} onChange={setCompatMode} />
       </Card>
 
       <Text variant="overline" color="textFaint" uppercase style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.sm }}>

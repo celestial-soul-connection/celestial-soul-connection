@@ -89,6 +89,7 @@ export async function setMyProfile(v: MyProfileFields): Promise<void> {
 
 const MEGENDER_KEY = '@csc/me_gender';
 const MESEEKING_KEY = '@csc/me_seeking';
+const MECOMPAT_KEY = '@csc/me_compat_mode';
 const UNLOCK_KEY = '@csc/contact_unlocks';   // matchId[] whose contact is unlocked
 const UNLOCK_LOG_KEY = '@csc/contact_unlock_log';
 export async function getMyGender(): Promise<import('./types').Gender | undefined> {
@@ -104,6 +105,14 @@ export async function setMySeeking(s: import('./types').SeekingPref): Promise<vo
   await AsyncStorage.setItem(MESEEKING_KEY, JSON.stringify(s));
 }
 
+export async function getMyCompatMode(): Promise<import('./types').CompatibilityMode> {
+  const { DEFAULT_COMPAT_MODE } = await import('./types');
+  return getJSON<import('./types').CompatibilityMode>(MECOMPAT_KEY, DEFAULT_COMPAT_MODE);
+}
+export async function setMyCompatMode(m: import('./types').CompatibilityMode): Promise<void> {
+  await AsyncStorage.setItem(MECOMPAT_KEY, JSON.stringify(m));
+}
+
 const MEMARITAL_KEY = '@csc/me_marital';
 export async function getMyMaritalStatus(): Promise<import('./types').MaritalStatus | undefined> {
   return getJSON<import('./types').MaritalStatus | undefined>(MEMARITAL_KEY, undefined);
@@ -116,6 +125,7 @@ async function buildMe(): Promise<Me> {
   return {
     psych: await getMyPsych(), birth: await getMyBirth(), age: await getMyAge(),
     interests: await getMyInterests(), gender: await getMyGender(), seeking: await getMySeeking(),
+    compatMode: await getMyCompatMode(),
   };
 }
 
@@ -177,7 +187,7 @@ export async function resetDeck(): Promise<void> {
 /** All AsyncStorage keys this app owns — single source for export/delete. */
 const ALL_KEYS = [
   MEPSYCH_KEY, MEBIRTH_KEY, MEAGE_KEY, MEINTERESTS_KEY, MEINTENTIONS_KEY, MEPROFILE_KEY,
-  MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY,
+  MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY, MECOMPAT_KEY,
   PASSED_KEY, LIKED_KEY, REPORTED_KEY, REPORTED_KEY + '_log', MSGS_KEY,
   UNLOCK_KEY, UNLOCK_LOG_KEY, ...BILLING_KEYS,
 ];

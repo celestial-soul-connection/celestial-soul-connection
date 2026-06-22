@@ -10,9 +10,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
 import { Text } from '../../src/components/Text';
-import { exportMyData, deleteMyAccount } from '../../src/data/store';
+import { exportMyData, deleteMyAccount, getMyCompatMode, setMyCompatMode } from '../../src/data/store';
 import { signOut } from '../../src/data/session';
 import { getEntitlement, Entitlement } from '../../src/data/billing';
+import { CompatModeChooser } from '../../src/components/CompatModeChooser';
+import { CompatibilityMode, DEFAULT_COMPAT_MODE } from '../../src/data/types';
 import { useTheme, useThemeControls } from '../../src/theme/ThemeProvider';
 import { PALETTES, ThemeName } from '../../src/theme/palettes';
 import { FeelName } from '../../src/theme/feel';
@@ -31,7 +33,12 @@ export default function StyleStudio() {
   const insets = useSafeAreaInsets();
   const { themeName, setTheme, available, feelName, setFeel, availableFeels } = useThemeControls();
   const [ent, setEnt] = useState<Entitlement | null>(null);
-  useFocusEffect(useCallback(() => { (async () => setEnt(await getEntitlement()))(); }, []));
+  const [compatMode, setCompatMode] = useState<CompatibilityMode>(DEFAULT_COMPAT_MODE);
+  useFocusEffect(useCallback(() => {
+    (async () => { setEnt(await getEntitlement()); setCompatMode(await getMyCompatMode()); })();
+  }, []));
+
+  const changeCompatMode = (m: CompatibilityMode) => { setCompatMode(m); setMyCompatMode(m); };
 
   const membershipLine = ent?.subscription
     ? 'Active subscription'
@@ -74,6 +81,13 @@ export default function StyleStudio() {
           Mix a colour palette with an atmosphere, and manage how your data is used.
           Everything updates live.
         </Text>
+
+        {/* ---- HOW WE MATCH YOU ---- */}
+        <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.xs }}>How we match you</Text>
+        <Text variant="caption" color="textMuted" style={{ marginBottom: t.spacing.sm }}>
+          Choose the lens your compatibility scores are built on. You’re shown to people who chose the same.
+        </Text>
+        <CompatModeChooser value={compatMode} onChange={changeCompatMode} />
 
         {/* ---- MEMBERSHIP ---- */}
         <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.sm }}>Membership</Text>

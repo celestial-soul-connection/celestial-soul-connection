@@ -23,7 +23,7 @@ import { Button } from '../../src/components/Button';
 import { Chip } from '../../src/components/Chip';
 import { CompatibilityRing } from '../../src/components/CompatibilityRing';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { getDeck, passProfile, likeProfile, resetDeck, getMyBirth } from '../../src/data/store';
+import { getDeck, passProfile, likeProfile, resetDeck, getMyBirth, getMyCompatMode } from '../../src/data/store';
 import { getEntitlement } from '../../src/data/billing';
 import { hydrateAstro } from '../../src/data/matching';
 import { MatchResult, maritalLabel } from '../../src/data/types';
@@ -60,7 +60,8 @@ export default function DailyMatch() {
     (async () => {
       const birth = await getMyBirth();
       if (!birth || !alive) return;
-      const fused = await hydrateAstro(birth, top);
+      const mode = await getMyCompatMode();
+      const fused = await hydrateAstro(birth, top, mode);
       if (!alive) return;
       setDeck((cur) => {
         if (!cur) return cur;

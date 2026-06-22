@@ -73,6 +73,32 @@ export function maritalLabel(s?: MaritalStatus): string {
   return MARITAL_OPTIONS.find((o) => o.v === s)?.label ?? '';
 }
 
+/**
+ * How the user wants compatibility computed. This is a first-class CHOICE — it
+ * drives the fusion weights AND lets us map people who chose the same lens.
+ *  - psychological: 100% psychology model
+ *  - astrological:  100% astrology (Karmian)
+ *  - balanced:      the average of both (default)
+ */
+export type CompatibilityMode = 'psychological' | 'astrological' | 'balanced';
+export const COMPAT_MODE_OPTIONS: { v: CompatibilityMode; label: string; help: string; icon: string }[] = [
+  { v: 'psychological', label: 'Psychological', help: 'Match purely on attachment, values & life goals.', icon: '✶' },
+  { v: 'balanced', label: 'Balanced', help: 'An even blend of psychology and the stars.', icon: '⚖' },
+  { v: 'astrological', label: 'Astrological', help: 'Match purely on celestial compatibility.', icon: '☾' },
+];
+export const DEFAULT_COMPAT_MODE: CompatibilityMode = 'balanced';
+/** Resolve a mode to fusion weights (psych + astro sum to 1). */
+export function weightsForMode(mode: CompatibilityMode): { psych: number; astro: number } {
+  switch (mode) {
+    case 'psychological': return { psych: 1, astro: 0 };
+    case 'astrological': return { psych: 0, astro: 1 };
+    default: return { psych: 0.5, astro: 0.5 };
+  }
+}
+export function compatModeLabel(m?: CompatibilityMode): string {
+  return COMPAT_MODE_OPTIONS.find((o) => o.v === m)?.label ?? '';
+}
+
 export interface Profile {
   id: string;
   name: string;
