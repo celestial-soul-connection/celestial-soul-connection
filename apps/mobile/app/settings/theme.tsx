@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
 import { Text } from '../../src/components/Text';
-import { exportMyData, deleteMyAccount, getMyCompatMode, setMyCompatMode } from '../../src/data/store';
+import { exportMyData, deleteMyAccount, getMyCompatMode, setMyCompatMode, resetDeck } from '../../src/data/store';
 import { signOut } from '../../src/data/session';
 import { getEntitlement, Entitlement } from '../../src/data/billing';
 import { CompatModeChooser } from '../../src/components/CompatModeChooser';
@@ -148,6 +148,8 @@ export default function StyleStudio() {
         <SettingRow t={t} label="Delete my account" help="Permanently erase your data" danger onPress={onDelete} />
         <Hair t={t} />
         <SettingRow t={t} label="Sign out" help="Log out of this device" onPress={async () => { await signOut(); router.replace('/'); }} />
+        <Hair t={t} />
+        <SettingRow t={t} label="Reset matches (demo)" help="Clear slots, past pairs & connections to test the flow" onPress={async () => { await resetDeck(); }} />
         <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.md }}>
           Birth & chat data are encrypted. Consent is logged to an append-only record. We never
           sell your data. DPDP 2023 · GDPR · CCPA.

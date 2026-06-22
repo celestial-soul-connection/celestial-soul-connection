@@ -14,6 +14,7 @@ import { Profile, MatchResult, PsychProfile, Message, BirthData } from './types'
 import { SEED_PROFILES } from './seedProfiles';
 import { rankCandidates, Me } from './matching';
 import { BILLING_KEYS, recordContactCharge } from './billing';
+import { SLOT_KEYS, getActiveConnectionIds } from './slots';
 import { clearToken } from './authApi';
 
 const PASSED_KEY = '@csc/passed';
@@ -139,15 +140,20 @@ export async function getDeck(withAstro = false): Promise<MatchResult[]> {
   const passed = await getJSON<string[]>(PASSED_KEY, []);
   const liked = await getJSON<string[]>(LIKED_KEY, []);
   const reported = await getJSON<string[]>(REPORTED_KEY, []);
-  const seen = new Set([...passed, ...liked, ...reported]);
+  // I5: never surface a past pair (declined connections/candidates) again.
+  const past = await getJSON<string[]>('@csc/past_pairings', []);
+  const seen = new Set([...passed, ...liked, ...reported, ...past]);
   const pool = SEED_PROFILES.filter((p) => !seen.has(p.id));
   return rankCandidates(me, pool, { withAstro });
 }
 
-/** Profiles the user has liked → the "Matches" list. */
+/** Profiles in an active connection (slots model) → the "Matches" list. */
 export async function getLikedProfiles(): Promise<Profile[]> {
+  const ids = await getActiveConnectionIds();
+  // Fall back to legacy liked ids so existing data still shows during migration.
   const liked = await getJSON<string[]>(LIKED_KEY, []);
-  return SEED_PROFILES.filter((p) => liked.includes(p.id));
+  const set = new Set([...ids, ...liked]);
+  return SEED_PROFILES.filter((p) => set.has(p.id));
 }
 
 /** Used by the report screen for a single pair (eager astro fusion). */
@@ -177,9 +183,9 @@ export async function reportProfile(id: string, reason: string): Promise<void> {
   if (!ids.includes(id)) await AsyncStorage.setItem(REPORTED_KEY, JSON.stringify([...ids, id]));
 }
 
-/** Reset the deck (handy for demoing). */
+/** Reset the deck + slots (handy for demoing): clears past pairs, slots, delivery ledger. */
 export async function resetDeck(): Promise<void> {
-  await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY, REPORTED_KEY]);
+  await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY, REPORTED_KEY, ...SLOT_KEYS]);
 }
 
 /* ----- data rights (DPDP 2023 / GDPR / CCPA) ----- */
@@ -189,7 +195,7 @@ const ALL_KEYS = [
   MEPSYCH_KEY, MEBIRTH_KEY, MEAGE_KEY, MEINTERESTS_KEY, MEINTENTIONS_KEY, MEPROFILE_KEY,
   MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY, MECOMPAT_KEY,
   PASSED_KEY, LIKED_KEY, REPORTED_KEY, REPORTED_KEY + '_log', MSGS_KEY,
-  UNLOCK_KEY, UNLOCK_LOG_KEY, ...BILLING_KEYS,
+  UNLOCK_KEY, UNLOCK_LOG_KEY, ...BILLING_KEYS, ...SLOT_KEYS,
 ];
 
 /**

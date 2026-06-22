@@ -1,10 +1,12 @@
 /**
- * Daily Match — a real swipe DECK (the signature dating interaction).
+ * Your Connection(s) — slot-gated delivery, NOT an endless deck.
  *
- * Loads genuinely ranked matches from the store (real scoring vs seed profiles),
- * shows a stack of cards with the next one peeking behind, and lets you swipe:
- * right = align (→ celebration if it's a strong match), left = pass. Each swipe
- * persists, so the deck advances and remembers. Free tier gates to 5/day.
+ * Enforced scarcity (PRD/Technical-design): a man has 1 slot, a woman 2. We
+ * surface ONE curated candidate into an open slot at a time, capped at 2 new
+ * deliveries / rolling 7 days. Opt-in (♥) opens a connection into that slot;
+ * decline (✕) frees the slot and the pair is never re-suggested — the structural
+ * cost that forces a genuine choice instead of endless scrolling. There is no
+ * infinite stack to swipe through.
  *
  * Fully works in Expo Go (Gesture Handler + Reanimated + Moti).
  */
@@ -23,13 +25,13 @@ import { Button } from '../../src/components/Button';
 import { Chip } from '../../src/components/Chip';
 import { CompatibilityRing } from '../../src/components/CompatibilityRing';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { getDeck, passProfile, likeProfile, resetDeck, getMyBirth, getMyCompatMode } from '../../src/data/store';
-import { getEntitlement } from '../../src/data/billing';
+import { getDeck, getMyBirth, getMyCompatMode, getMyGender } from '../../src/data/store';
 import { hydrateAstro } from '../../src/data/matching';
-import { MatchResult, maritalLabel } from '../../src/data/types';
+import {
+  getSlotsView, deliverCandidate, optInCandidate, declineSlot, SlotsView,
+} from '../../src/data/slots';
+import { MatchResult, maritalLabel, Gender } from '../../src/data/types';
 import { haptic } from '../../src/lib/haptics';
-
-const DAILY_LIMIT = 5;
 
 export default function DailyMatch() {
   const t = useTheme();
@@ -37,59 +39,84 @@ export default function DailyMatch() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
 
-  const [deck, setDeck] = useState<MatchResult[] | null>(null);
-  const [index, setIndex] = useState(0);
-  const [viewedToday, setViewedToday] = useState(0);
-  const [isPremium, setIsPremium] = useState(true); // assume premium until known (no flash of paywall)
+  const [view, setView] = useState<SlotsView | null>(null);
+  const [gender, setGender] = useState<Gender | undefined>();
+  // The candidate currently surfaced into an open slot (one at a time).
+  const [candidate, setCandidate] = useState<MatchResult | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const d = await getDeck();
-    setDeck(d);
-    setIndex(0);
-    setIsPremium((await getEntitlement()).isPremium);
+    const g = await getMyGender();
+    setGender(g);
+    const v = await getSlotsView(g);
+    setView(v);
+
+    // If there's room (open slot + under weekly cap), surface the next eligible
+    // candidate (top of the ranked deck, past-pairs already excluded by getDeck).
+    if (v.canReceiveDelivery) {
+      const deck = await getDeck();
+      const pendingId = v.slots.find((s) => s.state === 'candidate_pending')?.candidateId;
+      const next = pendingId ? deck.find((m) => m.profile.id === pendingId) ?? deck[0] : deck[0];
+      if (next) {
+        // Reserve the slot for this candidate if not already pending.
+        if (!pendingId) await deliverCandidate(next.profile.id, g);
+        setCandidate(next);
+        setView(await getSlotsView(g));
+      } else {
+        setCandidate(null);
+      }
+    } else {
+      // A slot may hold a pending candidate already delivered this week.
+      const pendingId = v.slots.find((s) => s.state === 'candidate_pending')?.candidateId;
+      if (pendingId) {
+        const deck = await getDeck();
+        setCandidate(deck.find((m) => m.profile.id === pendingId) ?? null);
+      } else {
+        setCandidate(null);
+      }
+    }
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Lazily fuse astrology for the current top card (never blocks the deck).
+  // Lazily fuse astrology for the surfaced candidate (never blocks the UI).
   useEffect(() => {
-    if (!deck || !deck[index]) return;
-    const top = deck[index];
-    if (top.fused?.astroAvailable || top.fused?.astro) return; // already hydrated
+    if (!candidate) return;
+    if (candidate.fused?.astroAvailable || candidate.fused?.astro) return;
     let alive = true;
     (async () => {
       const birth = await getMyBirth();
       if (!birth || !alive) return;
       const mode = await getMyCompatMode();
-      const fused = await hydrateAstro(birth, top, mode);
+      const fused = await hydrateAstro(birth, candidate, mode);
       if (!alive) return;
-      setDeck((cur) => {
-        if (!cur) return cur;
-        const copy = [...cur];
-        copy[index] = { ...copy[index], fused, score: fused.score };
-        return copy;
-      });
+      setCandidate((cur) => (cur ? { ...cur, fused, score: fused.score } : cur));
     })();
     return () => { alive = false; };
-  }, [deck, index]);
-
-  const advance = () => setIndex((i) => i + 1);
+  }, [candidate]);
 
   const onLike = async (m: MatchResult) => {
-    await likeProfile(m.profile.id);
-    setViewedToday((v) => v + 1);
-    advance();
-    if (m.score >= 80) {
-      router.push({ pathname: '/match/celebration', params: { id: m.profile.id } });
-    }
+    if (busy) return;
+    setBusy(true);
+    // Opt-in → the connection opens into the slot (counterpart auto-opts-in; sim seam).
+    await optInCandidate(m.profile.id, gender);
+    haptic.success();
+    setCandidate(null);
+    setBusy(false);
+    router.push({ pathname: '/match/celebration', params: { id: m.profile.id } });
   };
   const onPass = async (m: MatchResult) => {
-    await passProfile(m.profile.id);
-    setViewedToday((v) => v + 1);
-    advance();
+    if (busy) return;
+    setBusy(true);
+    // Decline → frees the slot, pair never returns (forward-only, no penalty).
+    await declineSlot(m.profile.id, gender);
+    haptic.medium();
+    setCandidate(null);
+    setBusy(false);
+    load();
   };
 
-  if (!deck) {
+  if (!view) {
     return (
       <CinematicBackground>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -99,9 +126,9 @@ export default function DailyMatch() {
     );
   }
 
-  const remaining = deck.slice(index);
-  // Premium (trial or subscriber) = unlimited; free accounts hit the daily cap.
-  const limitReached = !isPremium && viewedToday >= DAILY_LIMIT;
+  const activeCount = view.slots.filter((s) => s.state === 'active').length;
+  const capReached = view.deliveriesThisWeek >= view.deliveryCap;
+  const slotsFull = view.openCount === 0;
 
   return (
     <CinematicBackground>
@@ -109,13 +136,11 @@ export default function DailyMatch() {
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
           <View>
-            <Text variant="overline" color="textFaint" uppercase>Your alignment today</Text>
-            <Text variant="displayLg">Today's matches</Text>
+            <Text variant="overline" color="textFaint" uppercase>Your connection{view.capacity > 1 ? 's' : ''}</Text>
+            <Text variant="displayLg">Slots</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-            <Pressable onPress={() => !isPremium && router.push('/paywall')}>
-              <Chip label={isPremium ? 'Unlimited' : `${Math.max(0, DAILY_LIMIT - viewedToday)} of ${DAILY_LIMIT} left`} tone="accent" />
-            </Pressable>
+            <SlotPips t={t} view={view} />
             <Pressable onPress={() => router.push('/settings/theme')} hitSlop={12}
               style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.colors.bgElevated, borderWidth: 1, borderColor: t.colors.border }}>
               <Text variant="title" color="textMuted">⚙</Text>
@@ -123,47 +148,56 @@ export default function DailyMatch() {
           </View>
         </View>
 
-        {/* Deck */}
+        {/* One candidate at a time — no endless stack */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: t.spacing.md }}>
-          {limitReached ? (
-            <Empty t={t} title="That's your 5 for today" body="Meaningful connection takes intention. Go unlimited, or come back tomorrow for your next aligned matches." onReset={async () => { await resetDeck(); setViewedToday(0); load(); }} onUpgrade={() => router.push('/paywall')} />
-          ) : remaining.length === 0 ? (
-            <Empty t={t} title="You're all caught up" body="No more matches in your deck right now. New aligned souls arrive daily." onReset={async () => { await resetDeck(); setViewedToday(0); load(); }} />
+          {candidate ? (
+            <SwipeCard onLike={() => onLike(candidate)} onPass={() => onPass(candidate)} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+              <MatchCardBody m={candidate} t={t} width={width} height={height} onReading={() => router.push({ pathname: '/match/[id]/report', params: { id: candidate.profile.id } })} />
+            </SwipeCard>
+          ) : slotsFull ? (
+            <Empty t={t} title={`Your ${activeCount > 1 ? activeCount + ' connections are' : 'connection is'} open`}
+              body="Focus on who you've matched with. A slot frees up if a connection ends — that's the point: real attention, not endless scrolling."
+              cta="Go to Matches" onCta={() => router.push('/(tabs)/matches')} />
+          ) : capReached ? (
+            <Empty t={t} title="That's this week's introductions"
+              body="We deliver a small number of genuine, curated matches each week — never a feed to grind through. Your next one arrives soon."
+              cta="See who you've matched" onCta={() => router.push('/(tabs)/matches')} />
           ) : (
-            // Render up to 3 stacked cards; top is swipeable, others peek behind.
-            remaining.slice(0, 3).reverse().map((m, ri, arr) => {
-              const depth = arr.length - 1 - ri; // 0 = top
-              const isTop = depth === 0;
-              const card = (
-                <MotiView
-                  key={m.profile.id}
-                  from={{ scale: 0.92 - depth * 0.04, translateY: depth * 14, opacity: 0 }}
-                  animate={{ scale: 1 - depth * 0.04, translateY: depth * 14, opacity: 1 }}
-                  transition={{ type: 'timing', duration: 320 }}
-                  style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <MatchCardBody m={m} t={t} width={width} height={height} />
-                </MotiView>
-              );
-              return isTop ? (
-                <SwipeCard key={m.profile.id} onLike={() => onLike(m)} onPass={() => onPass(m)} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <MatchCardBody m={m} t={t} width={width} height={height} onReading={() => router.push({ pathname: '/match/[id]/report', params: { id: m.profile.id } })} />
-                </SwipeCard>
-              ) : card;
-            })
+            <Empty t={t} title="No one to introduce right now"
+              body="We only surface people who genuinely fit your lens. A fresh, verified candidate will arrive when there's a real match."
+              cta="Adjust how we match you" onCta={() => router.push('/settings/theme')} />
           )}
         </View>
 
-        {/* Action buttons (alternative to swiping) */}
-        {!limitReached && remaining.length > 0 && (
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl, paddingHorizontal: t.spacing.xl }}>
-            <RoundBtn t={t} label="✕" tone="danger" onPress={() => { haptic.medium(); onPass(remaining[0]); }} />
-            <RoundBtn t={t} label="✦" tone="primary" big onPress={() => router.push({ pathname: '/match/chat', params: { id: remaining[0].profile.id } })} />
-            <RoundBtn t={t} label="♥" tone="success" onPress={() => { haptic.medium(); onLike(remaining[0]); }} />
+        {/* Opt-in / decline — the only two choices (no hoarding) */}
+        {candidate && (
+          <View style={{ alignItems: 'center', paddingHorizontal: t.spacing.xl, gap: t.spacing.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl }}>
+              <RoundBtn t={t} label="✕" tone="danger" onPress={() => onPass(candidate)} />
+              <RoundBtn t={t} label="♥" tone="success" big onPress={() => onLike(candidate)} />
+            </View>
+            <Text variant="caption" color="textFaint" center>
+              Decline freely — it’s free and frees the slot. We won’t flood you with replacements.
+            </Text>
           </View>
         )}
-
       </View>
     </CinematicBackground>
+  );
+}
+
+/** Slot pips: filled = active/pending, hollow = open. Communicates scarcity. */
+function SlotPips({ t, view }: { t: ReturnType<typeof useTheme>; view: SlotsView }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      {view.slots.map((s) => (
+        <View key={s.index} style={{
+          width: 12, height: 12, borderRadius: 12,
+          borderWidth: 1.5, borderColor: t.colors.primary,
+          backgroundColor: s.state === 'open' ? 'transparent' : t.colors.primary,
+        }} />
+      ))}
+    </View>
   );
 }
 
@@ -225,15 +259,16 @@ function RoundBtn({ t, label, tone, onPress, big }: { t: ReturnType<typeof useTh
   );
 }
 
-function Empty({ t, title, body, onReset, onUpgrade }: { t: ReturnType<typeof useTheme>; title: string; body: string; onReset: () => void; onUpgrade?: () => void }) {
+function Empty({ t, title, body, cta, onCta }: { t: ReturnType<typeof useTheme>; title: string; body: string; cta?: string; onCta?: () => void }) {
   return (
     <GlassCard glow style={{ marginHorizontal: t.spacing.xl, alignItems: 'center' }}>
       <Text variant="headline" center>{title}</Text>
       <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm }}>{body}</Text>
-      <View style={{ marginTop: t.spacing.lg, width: '100%', gap: t.spacing.sm }}>
-        {onUpgrade && <Button label="Go unlimited" onPress={onUpgrade} />}
-        <Button label="Reset deck (demo)" variant="secondary" onPress={onReset} />
-      </View>
+      {cta && onCta && (
+        <View style={{ marginTop: t.spacing.lg, width: '100%' }}>
+          <Button label={cta} variant="secondary" onPress={onCta} />
+        </View>
+      )}
     </GlassCard>
   );
 }
