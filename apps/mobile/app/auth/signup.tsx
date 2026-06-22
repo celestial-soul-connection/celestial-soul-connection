@@ -17,9 +17,11 @@ import { DateTimeField } from '../../src/components/fx/DateTimeField';
 import { Reveal } from '../../src/components/fx/Reveal';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
+import { GoogleSignInButton, OrDivider } from '../../src/components/auth/GoogleSignInButton';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { signUpWithPassword } from '../../src/data/session';
 import { AuthError } from '../../src/data/authApi';
+import { Session } from '../../src/data/types';
 import { haptic } from '../../src/lib/haptics';
 
 const eighteenYearsAgo = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 18); return d; })();
@@ -108,9 +110,15 @@ export default function SignUp() {
             )}
           </View>
 
-          <Reveal index={5}>
+          <Reveal index={5} style={{ gap: t.spacing.lg }}>
             <Button label="Create account" disabled={!canSubmit} loading={loading} onPress={submit} />
-            <Pressable onPress={() => router.push('/auth/login')} style={{ alignSelf: 'center', paddingVertical: t.spacing.md }}>
+            <OrDivider />
+            <GoogleSignInButton
+              label="Sign up with Google"
+              onSession={(s: Session) => router.replace(s.onboarded ? '/(tabs)/discover' : '/onboarding/birth-portal')}
+              onError={setError}
+            />
+            <Pressable onPress={() => router.push('/auth/login')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
               <Text variant="label" color="textMuted">Already have an account? <Text variant="label" color="primary">Log in</Text></Text>
             </Pressable>
           </Reveal>

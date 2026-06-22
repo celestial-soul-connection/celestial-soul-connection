@@ -68,6 +68,19 @@ export async function login(identifier: string, password: string): Promise<AuthR
   return result;
 }
 
+/**
+ * Exchange a verified Google credential for our session JWT. The backend
+ * (/auth/google) re-verifies the token; we never trust it on the client. A NEW
+ * Google account needs `dob` (18+ gate) — without it the server replies 422
+ * `dob_required`, which callers handle by collecting DOB (or onboarding).
+ */
+export async function loginWithGoogle(input: { idToken?: string; accessToken?: string; dob?: string }): Promise<AuthResult> {
+  const data = await post('/auth/google', { id_token: input.idToken, access_token: input.accessToken, dob: input.dob });
+  const result: AuthResult = { accessToken: data.access_token, userId: data.user_id, email: data.email };
+  await SecureStore.setItemAsync(TOKEN_KEY, result.accessToken);
+  return result;
+}
+
 export async function getToken(): Promise<string | null> {
   return SecureStore.getItemAsync(TOKEN_KEY);
 }

@@ -147,4 +147,6 @@ export interface Session {
   onboarded: boolean;    // finished the questionnaire
   psych?: PsychProfile;
   createdAt: number;
+  email?: string;
+  provider?: 'password' | 'phone' | 'google';
 }
