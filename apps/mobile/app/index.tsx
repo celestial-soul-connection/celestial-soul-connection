@@ -109,8 +109,8 @@ export default function Welcome() {
         </Reveal>
 
         <Reveal index={5} style={{ gap: t.spacing.md }}>
-          <Button label="Begin your alignment" onPress={() => router.push('/auth/phone')} />
-          <Button label="I already have an account" variant="glassLight" onPress={() => router.push('/auth/phone')} />
+          <Button label="Begin your alignment" onPress={() => router.push('/auth/signup')} />
+          <Button label="I already have an account" variant="glassLight" onPress={() => router.push('/auth/login')} />
           <Text variant="caption" color="textOnImageMuted" onImage center style={{ marginTop: t.spacing.xs }}>
             By continuing you agree to granular, withdrawable consent. You choose what we use.
           </Text>
