@@ -15,7 +15,8 @@ import { Toggle } from '../../src/components/Toggle';
 import { DateTimeField } from '../../src/components/fx/DateTimeField';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { searchPlaces, Place } from '../../src/data/placeSearch';
-import { setMyBirth, setMyAge, setMyGender, setMySeeking } from '../../src/data/store';
+import { MARITAL_OPTIONS, MaritalStatus } from '../../src/data/types';
+import { setMyBirth, setMyAge, setMyGender, setMySeeking, setMyMaritalStatus } from '../../src/data/store';
 
 type Consent = { key: string; label: string; help: string; required?: boolean; default?: boolean };
 const CONSENTS: Consent[] = [
@@ -44,6 +45,7 @@ export default function BirthPortal() {
 
   const [gender, setGender] = useState<'woman' | 'man' | 'nonbinary' | null>(null);
   const [seeking, setSeeking] = useState<'women' | 'men' | 'everyone' | null>(null);
+  const [marital, setMarital] = useState<MaritalStatus | null>(null);
   const [date, setDate] = useState('');     // YYYY-MM-DD
   const [time, setTime] = useState('');     // HH:MM
   const [placeQuery, setPlaceQuery] = useState('');
@@ -72,12 +74,13 @@ export default function BirthPortal() {
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const validTime = /^\d{2}:\d{2}$/.test(time);
   const consentOk = CONSENTS.filter((c) => c.required).every((c) => consent[c.key]);
-  const canContinue = !!gender && !!seeking && validDate && validTime && !!place && consentOk;
+  const canContinue = !!gender && !!seeking && !!marital && validDate && validTime && !!place && consentOk;
 
   const submit = async () => {
-    if (!place || !gender || !seeking) return;
+    if (!place || !gender || !seeking || !marital) return;
     await setMyGender(gender);
     await setMySeeking(seeking);
+    await setMyMaritalStatus(marital);
     await setMyBirth({ date, time, latitude: place.latitude, longitude: place.longitude, timezone: place.timezone, place: place.place });
     await setMyAge(ageFromDate(date));
     router.replace('/onboarding/questionnaire');
@@ -105,6 +108,16 @@ export default function BirthPortal() {
         <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
           {([['women', 'Women'], ['men', 'Men'], ['everyone', 'Everyone']] as const).map(([v, label]) => (
             <SelectPill key={v} t={t} label={label} on={seeking === v} onPress={() => setSeeking(v)} />
+          ))}
+        </View>
+        <Divider t={t} />
+        <Text variant="overline" color="textFaint" uppercase>Marital status</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
+          {MARITAL_OPTIONS.map((o) => (
+            <Pressable key={o.v} onPress={() => setMarital(o.v)}
+              style={{ backgroundColor: marital === o.v ? t.colors.primary : t.colors.bgSunken, borderWidth: 1, borderColor: marital === o.v ? t.colors.primary : 'transparent', borderRadius: t.radii.pill, paddingVertical: t.spacing.sm, paddingHorizontal: t.spacing.lg }}>
+              <Text variant="label" color={marital === o.v ? 'textOnPrimary' : 'textMuted'}>{o.label}</Text>
+            </Pressable>
           ))}
         </View>
       </Card>

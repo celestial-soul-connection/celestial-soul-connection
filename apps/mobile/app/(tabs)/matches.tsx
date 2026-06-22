@@ -4,7 +4,7 @@
  * verified badge. Empty state nudges back to Discover.
  */
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Pressable, Image as RNImage } from 'react-native';
+import { View, ScrollView, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -13,7 +13,7 @@ import { GlassCard } from '../../src/components/fx/GlassCard';
 import { Reveal } from '../../src/components/fx/Reveal';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
-import { Chip } from '../../src/components/Chip';
+import { VerifiedBadge } from '../../src/components/profile/ProfileKit';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { getLikedProfiles } from '../../src/data/store';
 import { Profile } from '../../src/data/types';
@@ -34,13 +34,14 @@ export default function Matches() {
         <Text variant="displayLg">Matches</Text>
 
         {liked && liked.length === 0 && (
-          <GlassCard glow style={{ marginTop: t.spacing['2xl'], alignItems: 'center' }}>
-            <Text variant="headline" center>No alignments yet</Text>
-            <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm }}>
-              Swipe right on someone who resonates, and they'll appear here — ready for a meaningful thread.
+          <View style={{ marginTop: t.spacing['4xl'], alignItems: 'center' }}>
+            <Text variant="displayLg" color="textFaint">✦</Text>
+            <Text variant="headline" center style={{ marginTop: t.spacing.md }}>No alignments yet</Text>
+            <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm, paddingHorizontal: t.spacing.lg }}>
+              Resonate with someone in Discover, and they'll appear here — ready for a meaningful thread.
             </Text>
-            <Button label="Go to Discover" onPress={() => router.push('/(tabs)/discover')} style={{ marginTop: t.spacing.lg }} />
-          </GlassCard>
+            <Button label="Go to Discover" onPress={() => router.push('/(tabs)/discover')} style={{ marginTop: t.spacing.xl }} />
+          </View>
         )}
 
         <View style={{ marginTop: t.spacing.xl, gap: t.spacing.md }}>
@@ -53,7 +54,7 @@ export default function Matches() {
                     <View style={{ flex: 1, padding: t.spacing.lg, justifyContent: 'center' }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text variant="title">{p.name}, {p.age}</Text>
-                        {p.verified?.photo && <Chip label="✓" tone="success" />}
+                        {p.verified?.photo && <VerifiedBadge size={18} />}
                       </View>
                       <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>{p.city}</Text>
                       <View style={{ flexDirection: 'row', gap: t.spacing.sm, marginTop: t.spacing.md }}>

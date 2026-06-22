@@ -24,8 +24,9 @@ import { Chip } from '../../src/components/Chip';
 import { CompatibilityRing } from '../../src/components/CompatibilityRing';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { getDeck, passProfile, likeProfile, resetDeck, getMyBirth } from '../../src/data/store';
+import { getEntitlement } from '../../src/data/billing';
 import { hydrateAstro } from '../../src/data/matching';
-import { MatchResult } from '../../src/data/types';
+import { MatchResult, maritalLabel } from '../../src/data/types';
 import { haptic } from '../../src/lib/haptics';
 
 const DAILY_LIMIT = 5;
@@ -39,11 +40,13 @@ export default function DailyMatch() {
   const [deck, setDeck] = useState<MatchResult[] | null>(null);
   const [index, setIndex] = useState(0);
   const [viewedToday, setViewedToday] = useState(0);
+  const [isPremium, setIsPremium] = useState(true); // assume premium until known (no flash of paywall)
 
   const load = useCallback(async () => {
     const d = await getDeck();
     setDeck(d);
     setIndex(0);
+    setIsPremium((await getEntitlement()).isPremium);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -96,7 +99,8 @@ export default function DailyMatch() {
   }
 
   const remaining = deck.slice(index);
-  const limitReached = viewedToday >= DAILY_LIMIT;
+  // Premium (trial or subscriber) = unlimited; free accounts hit the daily cap.
+  const limitReached = !isPremium && viewedToday >= DAILY_LIMIT;
 
   return (
     <CinematicBackground>
@@ -107,13 +111,21 @@ export default function DailyMatch() {
             <Text variant="overline" color="textFaint" uppercase>Your alignment today</Text>
             <Text variant="displayLg">Today's matches</Text>
           </View>
-          <Chip label={`${Math.max(0, DAILY_LIMIT - viewedToday)} of ${DAILY_LIMIT} left`} tone="accent" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
+            <Pressable onPress={() => !isPremium && router.push('/paywall')}>
+              <Chip label={isPremium ? 'Unlimited' : `${Math.max(0, DAILY_LIMIT - viewedToday)} of ${DAILY_LIMIT} left`} tone="accent" />
+            </Pressable>
+            <Pressable onPress={() => router.push('/settings/theme')} hitSlop={12}
+              style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.colors.bgElevated, borderWidth: 1, borderColor: t.colors.border }}>
+              <Text variant="title" color="textMuted">⚙</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Deck */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: t.spacing.md }}>
           {limitReached ? (
-            <Empty t={t} title="That's your 5 for today" body="Meaningful connection takes intention. Come back tomorrow for your next aligned matches." onReset={async () => { await resetDeck(); setViewedToday(0); load(); }} />
+            <Empty t={t} title="That's your 5 for today" body="Meaningful connection takes intention. Go unlimited, or come back tomorrow for your next aligned matches." onReset={async () => { await resetDeck(); setViewedToday(0); load(); }} onUpgrade={() => router.push('/paywall')} />
           ) : remaining.length === 0 ? (
             <Empty t={t} title="You're all caught up" body="No more matches in your deck right now. New aligned souls arrive daily." onReset={async () => { await resetDeck(); setViewedToday(0); load(); }} />
           ) : (
@@ -149,9 +161,6 @@ export default function DailyMatch() {
           </View>
         )}
 
-        <Pressable onPress={() => router.push('/settings/theme')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
-          <Text variant="label" color="textMuted">✦ Style &amp; privacy</Text>
-        </Pressable>
       </View>
     </CinematicBackground>
   );
@@ -178,23 +187,27 @@ function MatchCardBody({ m, t, width, height, onReading }: { m: MatchResult; t: 
       {/* Bottom info */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: t.spacing.xl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text variant="displayLg" color="textOnImage" onImage>{m.profile.name}, {m.profile.age}</Text>
+          <Text variant="displayXl" color="textOnImage" onImage>{m.profile.name}, {m.profile.age}</Text>
           {m.profile.verified?.photo && (
-            <View style={{ backgroundColor: t.colors.success, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2 }}>
-              <Text variant="caption" color="textOnPrimary">✓ verified</Text>
+            <View style={{ width: 22, height: 22, borderRadius: 22, backgroundColor: t.colors.success, alignItems: 'center', justifyContent: 'center' }}>
+              <Text variant="caption" color="textOnPrimary">✓</Text>
             </View>
           )}
         </View>
-        <Text variant="body" color="textOnImageMuted" onImage style={{ marginTop: 2 }}>{m.profile.blurb}</Text>
+        <Text variant="label" color="textOnImageMuted" onImage style={{ marginTop: 4 }}>
+          {[m.profile.city, maritalLabel(m.profile.maritalStatus)].filter(Boolean).join('  ·  ')}
+        </Text>
+        <Text variant="body" color="textOnImageMuted" onImage style={{ marginTop: t.spacing.sm }} numberOfLines={1}>{m.profile.blurb}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.md }}>
           {m.reasons.slice(0, 3).map((r) => (
-            <View key={r.dim} style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 5 }}>
-              <Text variant="label" color="textOnImage" onImage>{r.dim} · {r.pct}%</Text>
+            <View key={r.dim} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
+              <Text variant="label" color="textOnImage" onImage>{r.dim}</Text>
+              <Text variant="label" color="textOnImageMuted" onImage>{r.pct}%</Text>
             </View>
           ))}
         </View>
-        <Pressable onPress={onReading} style={{ marginTop: t.spacing.md, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.lg, paddingVertical: 8 }}>
-          <Text variant="label" color="textOnImage" onImage>✦ See full reading</Text>
+        <Pressable onPress={onReading} style={{ marginTop: t.spacing.lg, alignSelf: 'flex-start' }}>
+          <Text variant="label" color="textOnImage" onImage>✦ See full reading  →</Text>
         </Pressable>
       </View>
     </View>
@@ -211,12 +224,13 @@ function RoundBtn({ t, label, tone, onPress, big }: { t: ReturnType<typeof useTh
   );
 }
 
-function Empty({ t, title, body, onReset }: { t: ReturnType<typeof useTheme>; title: string; body: string; onReset: () => void }) {
+function Empty({ t, title, body, onReset, onUpgrade }: { t: ReturnType<typeof useTheme>; title: string; body: string; onReset: () => void; onUpgrade?: () => void }) {
   return (
     <GlassCard glow style={{ marginHorizontal: t.spacing.xl, alignItems: 'center' }}>
       <Text variant="headline" center>{title}</Text>
       <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm }}>{body}</Text>
-      <View style={{ marginTop: t.spacing.lg, width: '100%' }}>
+      <View style={{ marginTop: t.spacing.lg, width: '100%', gap: t.spacing.sm }}>
+        {onUpgrade && <Button label="Go unlimited" onPress={onUpgrade} />}
         <Button label="Reset deck (demo)" variant="secondary" onPress={onReset} />
       </View>
     </GlassCard>

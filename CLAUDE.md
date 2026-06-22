@@ -41,5 +41,11 @@ matching logic; Expo gives iOS+Android from one codebase.
 - Mobile: `cd apps/mobile && npm install && npx expo start` (add brand fonts first — see `assets/fonts/README.md`).
 
 ## Status
-Foundation + design system + two research docs + backend skeleton are in place. Profiles,
-real questionnaire scoring, payments, KYC, push, and migrations are still TODO.
+In place: foundation + design system + research docs; the full match loop (onboarding →
+questionnaire scoring → ranked deck → fused psychology+astrology report → chat with contact
+redaction); profiles rebuilt to a Hinge×TrulyMadly bar (ProfileKit); marital status;
+first-party auth (FastAPI email+phone+password, bcrypt+JWT; mobile signup/login with secure
+token); monetization (7-day trial → ₹99/₹199 weekly; tiered contact reveal ₹21 / 5-free-paid;
+paywall + premium gating); data export/delete.
+Still TODO: real payment gateway (Razorpay), Google sign-in, KYC, push, server-side matching,
+Alembic migrations, Supabase. API venv needs Python 3.11 (3.14 lacks a pydantic-core wheel).

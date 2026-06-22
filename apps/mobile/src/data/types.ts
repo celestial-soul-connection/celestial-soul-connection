@@ -60,12 +60,26 @@ export type Gender = 'woman' | 'man' | 'nonbinary';
 /** Who the user wants to be shown. */
 export type SeekingPref = 'women' | 'men' | 'everyone';
 
+/** Marital status — first-class for a second-chance / serious-intent audience. */
+export type MaritalStatus = 'unmarried' | 'divorced' | 'awaiting_divorce' | 'widowed' | 'separated';
+export const MARITAL_OPTIONS: { v: MaritalStatus; label: string }[] = [
+  { v: 'unmarried', label: 'Unmarried' },
+  { v: 'divorced', label: 'Divorced' },
+  { v: 'awaiting_divorce', label: 'Awaiting divorce' },
+  { v: 'separated', label: 'Separated' },
+  { v: 'widowed', label: 'Widowed' },
+];
+export function maritalLabel(s?: MaritalStatus): string {
+  return MARITAL_OPTIONS.find((o) => o.v === s)?.label ?? '';
+}
+
 export interface Profile {
   id: string;
   name: string;
   age: number;
   gender?: Gender;
   seeking?: SeekingPref;   // who THEY want to see (used for mutual filtering)
+  maritalStatus?: MaritalStatus;
   city: string;
   photo: string;
   photos?: string[];        // additional photos (profile gallery)

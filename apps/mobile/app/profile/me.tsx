@@ -5,21 +5,23 @@
  * Everything saves to the local store and feeds matching + the report.
  */
 import React, { useEffect, useState } from 'react';
-import { View, TextInput, Pressable, ScrollView, Image as RNImage } from 'react-native';
+import { View, TextInput, Pressable, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
-import { GlassCard } from '../../src/components/fx/GlassCard';
 import { Reveal } from '../../src/components/fx/Reveal';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
+import {
+  PhotoBlock, PromptBlock, VitalChips, VerifiedCluster, VerifiedBadge, SectionLabel, Hairline,
+} from '../../src/components/profile/ProfileKit';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { INTEREST_TAGS, LifeIntentions } from '../../src/data/types';
+import { INTEREST_TAGS, LifeIntentions, BirthData, Gender, SeekingPref, MaritalStatus, maritalLabel } from '../../src/data/types';
 import {
   getMyInterests, setMyInterests, getMyIntentions, setMyIntentions, getMyProfile, setMyProfile,
+  getMyBirth, getMyAge, getMyGender, getMySeeking, getMyMaritalStatus,
 } from '../../src/data/store';
 import { haptic } from '../../src/lib/haptics';
 
@@ -43,6 +45,12 @@ export default function MyProfile() {
   const [intentions, setIntentions] = useState<LifeIntentions>({});
   const [photoVerifying, setPhotoVerifying] = useState(false);
   const [photoVerified, setPhotoVerified] = useState(false);
+  // Read-only birth/identity facts (set during onboarding, shown for transparency).
+  const [birth, setBirth] = useState<BirthData | undefined>();
+  const [age, setAge] = useState<number | undefined>();
+  const [gender, setGender] = useState<Gender | undefined>();
+  const [seeking, setSeeking] = useState<SeekingPref | undefined>();
+  const [marital, setMarital] = useState<MaritalStatus | undefined>();
 
   useEffect(() => {
     (async () => {
@@ -50,6 +58,11 @@ export default function MyProfile() {
       setName(p.name ?? ''); setBio(p.bio ?? ''); setPhoto(p.photos?.[0] ?? null);
       setInterests(await getMyInterests());
       setIntentions(await getMyIntentions());
+      setBirth(await getMyBirth());
+      setAge(await getMyAge());
+      setGender(await getMyGender());
+      setSeeking(await getMySeeking());
+      setMarital(await getMyMaritalStatus());
     })();
   }, []);
 
@@ -79,53 +92,90 @@ export default function MyProfile() {
   return (
     <CinematicBackground>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + t.spacing['3xl'] }}>
-        {/* Hero photo tile, full-bleed */}
+        {/* Hero — full-bleed photo, name + age + verified inline, vitals on scrim */}
         <Pressable onPress={pickPhoto}>
-          <View style={{ height: 460, backgroundColor: t.colors.bgSunken }}>
-            {photo ? <RNImage source={{ uri: photo }} style={{ width: '100%', height: '100%' }} /> : (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: t.spacing.sm }}>
-                <Text variant="displayLg" color="textFaint">+</Text>
-                <Text variant="label" color="textMuted">Add your photo</Text>
-              </View>
-            )}
-            <LinearGradient colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(10,6,16,0.85)']} locations={[0, 0.4, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-            <Pressable onPress={() => router.back()} hitSlop={12} style={{ position: 'absolute', top: insets.top + t.spacing.sm, left: t.spacing.lg }}>
-              <Text variant="headline" color="textOnImage" onImage>‹</Text>
-            </Pressable>
-            <View style={{ position: 'absolute', left: t.spacing.xl, right: t.spacing.xl, bottom: t.spacing.xl }}>
-              <Text variant="overline" color="textOnImageMuted" onImage uppercase>Your profile</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, marginTop: 4 }}>
-                <Text variant="displayLg" color="textOnImage" onImage>{name || 'Your name'}</Text>
-                {photoVerified && <View style={{ backgroundColor: t.colors.success, borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2 }}><Text variant="caption" color="textOnPrimary">✓</Text></View>}
-              </View>
-              {photo && !photoVerified && (
-                <Pressable onPress={verifyPhoto} style={{ marginTop: t.spacing.sm, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.lg, paddingVertical: 8 }}>
-                  <Text variant="label" color="textOnImage" onImage>{photoVerifying ? 'Verifying…' : '✦ Verify my photo'}</Text>
-                </Pressable>
-              )}
-              <Pressable onPress={pickPhoto} style={{ marginTop: t.spacing.sm }}>
-                <Text variant="label" color="textOnImageMuted" onImage>Tap photo to change</Text>
-              </Pressable>
+          <PhotoBlock uri={photo} height={520}>
+            <Text variant="overline" color="textOnImageMuted" onImage uppercase>Your profile</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, marginTop: 4 }}>
+              <Text variant="displayXl" color="textOnImage" onImage>{name || 'Your name'}{age ? `, ${age}` : ''}</Text>
+              {photoVerified && <VerifiedBadge />}
             </View>
-          </View>
+            {(gender || birth?.place) && (
+              <Text variant="label" color="textOnImageMuted" onImage style={{ marginTop: 4 }}>
+                {[genderLabel(gender), maritalLabel(marital), birth?.place].filter(Boolean).join('  ·  ')}
+              </Text>
+            )}
+            {photo && !photoVerified && (
+              <Pressable onPress={verifyPhoto} style={{ marginTop: t.spacing.md, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.lg, paddingVertical: 9 }}>
+                <Text variant="label" color="textOnImage" onImage>{photoVerifying ? 'Verifying…' : '✦ Verify my photo'}</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={pickPhoto} style={{ marginTop: t.spacing.sm }}>
+              <Text variant="label" color="textOnImageMuted" onImage>Tap photo to change</Text>
+            </Pressable>
+          </PhotoBlock>
+          {/* top-bar controls sit over the hero */}
+          <Pressable onPress={(e) => { e.stopPropagation?.(); router.back(); }} hitSlop={12} style={{ position: 'absolute', top: insets.top + t.spacing.sm, left: t.spacing.lg }}>
+            <Text variant="headline" color="textOnImage" onImage>‹</Text>
+          </Pressable>
+          <Pressable onPress={(e) => { e.stopPropagation?.(); router.push('/settings/theme'); }} hitSlop={12} style={{ position: 'absolute', top: insets.top + t.spacing.sm, right: t.spacing.lg }}>
+            <Text variant="headline" color="textOnImage" onImage>⚙</Text>
+          </Pressable>
         </Pressable>
 
-        <View style={{ paddingHorizontal: t.spacing.xl, marginTop: t.spacing.xl }}>
-          {/* About */}
+        <View style={{ paddingHorizontal: t.spacing.xl, marginTop: t.spacing['2xl'] }}>
+          {/* About — open editorial: a name line + a flowing bio, no field boxes */}
           <Reveal index={0}>
-            <SectionTitle t={t} icon="✶" title="About you" />
-            <GlassCard>
-              <Text variant="overline" color="textFaint" uppercase>Name</Text>
-              <TextInput value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={t.colors.textFaint} style={{ color: t.colors.text, fontFamily: t.fontFamily.bodyBold, fontSize: 18, marginTop: 4, marginBottom: t.spacing.md }} />
-              <View style={{ height: 1, backgroundColor: t.colors.border, marginBottom: t.spacing.md }} />
-              <Text variant="overline" color="textFaint" uppercase>In your words</Text>
-              <TextInput value={bio} onChangeText={setBio} placeholder="Something true about you…" placeholderTextColor={t.colors.textFaint} multiline style={{ color: t.colors.text, fontFamily: t.fontFamily.body, fontSize: 16, marginTop: 4, minHeight: 64 }} />
-            </GlassCard>
+            <SectionLabel>About you</SectionLabel>
+            <TextInput
+              value={name} onChangeText={setName} placeholder="Your name"
+              placeholderTextColor={t.colors.textFaint}
+              style={{ color: t.colors.text, fontFamily: t.fontFamily.display, fontSize: 30, lineHeight: 38, paddingVertical: 2 }}
+            />
+            <Hairline style={{ marginVertical: t.spacing.md }} />
+            <TextInput
+              value={bio} onChangeText={setBio}
+              placeholder="Write a few honest lines about who you are and what you're looking for…"
+              placeholderTextColor={t.colors.textFaint} multiline
+              style={{ color: t.colors.textMuted, fontFamily: t.fontFamily.body, fontSize: 17, lineHeight: 27, minHeight: 80 }}
+            />
           </Reveal>
 
-          {/* Interests */}
+          {/* Verified — granular trust signals (TrulyMadly-style) */}
           <Reveal index={1}>
-            <SectionTitle t={t} icon="✦" title="Interests" hint={`${interests.length}/10`} />
+            <SectionLabel style={{ marginTop: t.spacing['2xl'] }}>Verified</SectionLabel>
+            <VerifiedCluster signals={[
+              { label: '18+', on: !!age },
+              { label: 'Phone', on: true },
+              { label: 'Photo', on: photoVerified },
+              { label: 'ID', on: false },
+            ]} />
+            <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.sm }}>
+              More verified signals raise your trust standing — and how often you're shown.
+            </Text>
+          </Reveal>
+
+          {/* Birth & basics — chip vitals, NOT a table. Private. */}
+          {(birth || gender) && (
+            <Reveal index={2}>
+              <SectionLabel style={{ marginTop: t.spacing['2xl'] }}>Birth &amp; basics · private</SectionLabel>
+              <VitalChips items={[
+                { icon: '☾', label: birth?.date ? prettyDate(birth.date) : '' },
+                { icon: '◷', label: birth?.time || '' },
+                { icon: '📍', label: birth?.place || '' },
+                { icon: '⚲', label: genderLabel(gender) },
+                { icon: '⚭', label: maritalLabel(marital) },
+                { icon: '✦', label: seekingLabel(seeking) ? `Seeking ${seekingLabel(seeking)}` : '' },
+              ]} />
+              <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.sm }}>
+                Set once during onboarding — used only to compute your readings, never shown to others.
+              </Text>
+            </Reveal>
+          )}
+
+          {/* Interests */}
+          <Reveal index={3}>
+            <SectionLabel style={{ marginTop: t.spacing['2xl'] }}>{`Interests · ${interests.length}/10`}</SectionLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
               {INTEREST_TAGS.map((tag) => {
                 const on = interests.includes(tag);
@@ -141,45 +191,44 @@ export default function MyProfile() {
             </View>
           </Reveal>
 
-          {/* Life intentions */}
-          <Reveal index={2}>
-            <SectionTitle t={t} icon="♾" title="Life intentions" />
-            <Text variant="caption" color="textMuted" style={{ marginBottom: t.spacing.md, marginTop: -t.spacing.sm }}>
+          {/* Life intentions — one flowing list of rows, not a stack of boxes */}
+          <Reveal index={4}>
+            <SectionLabel style={{ marginTop: t.spacing['2xl'] }}>Life intentions</SectionLabel>
+            <Text variant="caption" color="textMuted" style={{ marginBottom: t.spacing.lg }}>
               Serious connection means aligning on real life — share how you see building it together.
             </Text>
-            {INTENT_FIELDS.map((field) => (
-              <GlassCard key={field.key} style={{ marginBottom: t.spacing.md }} padded>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, marginBottom: t.spacing.md }}>
-                  <Text variant="title">{field.icon}</Text>
-                  <Text variant="title">{field.label}</Text>
+            {INTENT_FIELDS.map((field, i) => (
+              <View key={field.key} style={{ marginBottom: i === INTENT_FIELDS.length - 1 ? 0 : t.spacing.lg }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm, marginBottom: t.spacing.sm }}>
+                  <Text variant="body">{field.icon}</Text>
+                  <Text variant="label">{field.label}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm }}>
                   {field.opts.map((o) => {
                     const on = (intentions as any)[field.key] === o.v;
                     return (
                       <Pressable key={o.v} onPress={() => setIntent(field.key, o.v)}>
-                        <View style={{ backgroundColor: on ? t.colors.primarySoft : t.colors.bgSunken, borderWidth: 1, borderColor: on ? t.colors.primary : 'transparent', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: t.spacing.sm }}>
+                        <View style={{ backgroundColor: on ? t.colors.primarySoft : 'transparent', borderWidth: 1, borderColor: on ? t.colors.primary : t.colors.border, borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: t.spacing.sm }}>
                           <Text variant="label" color={on ? 'primary' : 'textMuted'}>{o.label}</Text>
                         </View>
                       </Pressable>
                     );
                   })}
                 </View>
-              </GlassCard>
+              </View>
             ))}
 
-            <Pressable onPress={() => setIntentions((c) => ({ ...c, acknowledgedSelfManage: !c.acknowledgedSelfManage }))}>
-              <GlassCard style={{ marginTop: t.spacing.xs }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-                  <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: intentions.acknowledgedSelfManage ? t.colors.primary : t.colors.borderStrong, backgroundColor: intentions.acknowledgedSelfManage ? t.colors.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                    {intentions.acknowledgedSelfManage && <Text variant="caption" color="textOnPrimary">✓</Text>}
-                  </View>
-                  <Text variant="body" color="textMuted" style={{ flex: 1 }}>
-                    We intend to discuss and mutually manage these together — part of a shared
-                    intentions summary you can review with a match.
-                  </Text>
-                </View>
-              </GlassCard>
+            <Pressable
+              onPress={() => setIntentions((c) => ({ ...c, acknowledgedSelfManage: !c.acknowledgedSelfManage }))}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, marginTop: t.spacing.xl }}
+            >
+              <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: intentions.acknowledgedSelfManage ? t.colors.primary : t.colors.borderStrong, backgroundColor: intentions.acknowledgedSelfManage ? t.colors.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                {intentions.acknowledgedSelfManage && <Text variant="caption" color="textOnPrimary">✓</Text>}
+              </View>
+              <Text variant="body" color="textMuted" style={{ flex: 1 }}>
+                We intend to discuss and mutually manage these together — part of a shared
+                intentions summary you can review with a match.
+              </Text>
             </Pressable>
           </Reveal>
 
@@ -193,14 +242,15 @@ export default function MyProfile() {
   );
 }
 
-function SectionTitle({ t, icon, title, hint }: { t: ReturnType<typeof useTheme>; icon: string; title: string; hint?: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: t.spacing.xl, marginBottom: t.spacing.md }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-        <Text variant="title" color="primary">{icon}</Text>
-        <Text variant="headline">{title}</Text>
-      </View>
-      {hint && <Text variant="label" color="textFaint">{hint}</Text>}
-    </View>
-  );
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function prettyDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return `${d} ${MONTHS[m - 1]} ${y}`;
+}
+function genderLabel(g?: Gender): string {
+  return g === 'woman' ? 'Woman' : g === 'man' ? 'Man' : g === 'nonbinary' ? 'Non-binary' : '';
+}
+function seekingLabel(s?: SeekingPref): string {
+  return s === 'women' ? 'Women' : s === 'men' ? 'Men' : s === 'everyone' ? 'Everyone' : '';
 }

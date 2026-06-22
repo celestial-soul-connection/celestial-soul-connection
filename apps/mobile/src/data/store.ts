@@ -13,6 +13,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Profile, MatchResult, PsychProfile, Message, BirthData } from './types';
 import { SEED_PROFILES } from './seedProfiles';
 import { rankCandidates, Me } from './matching';
+import { BILLING_KEYS, recordContactCharge } from './billing';
+import { clearToken } from './authApi';
 
 const PASSED_KEY = '@csc/passed';
 const LIKED_KEY = '@csc/liked';
@@ -87,6 +89,8 @@ export async function setMyProfile(v: MyProfileFields): Promise<void> {
 
 const MEGENDER_KEY = '@csc/me_gender';
 const MESEEKING_KEY = '@csc/me_seeking';
+const UNLOCK_KEY = '@csc/contact_unlocks';   // matchId[] whose contact is unlocked
+const UNLOCK_LOG_KEY = '@csc/contact_unlock_log';
 export async function getMyGender(): Promise<import('./types').Gender | undefined> {
   return getJSON<import('./types').Gender | undefined>(MEGENDER_KEY, undefined);
 }
@@ -98,6 +102,14 @@ export async function getMySeeking(): Promise<import('./types').SeekingPref> {
 }
 export async function setMySeeking(s: import('./types').SeekingPref): Promise<void> {
   await AsyncStorage.setItem(MESEEKING_KEY, JSON.stringify(s));
+}
+
+const MEMARITAL_KEY = '@csc/me_marital';
+export async function getMyMaritalStatus(): Promise<import('./types').MaritalStatus | undefined> {
+  return getJSON<import('./types').MaritalStatus | undefined>(MEMARITAL_KEY, undefined);
+}
+export async function setMyMaritalStatus(s: import('./types').MaritalStatus): Promise<void> {
+  await AsyncStorage.setItem(MEMARITAL_KEY, JSON.stringify(s));
 }
 
 async function buildMe(): Promise<Me> {
@@ -158,6 +170,67 @@ export async function reportProfile(id: string, reason: string): Promise<void> {
 /** Reset the deck (handy for demoing). */
 export async function resetDeck(): Promise<void> {
   await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY, REPORTED_KEY]);
+}
+
+/* ----- data rights (DPDP 2023 / GDPR / CCPA) ----- */
+
+/** All AsyncStorage keys this app owns — single source for export/delete. */
+const ALL_KEYS = [
+  MEPSYCH_KEY, MEBIRTH_KEY, MEAGE_KEY, MEINTERESTS_KEY, MEINTENTIONS_KEY, MEPROFILE_KEY,
+  MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY,
+  PASSED_KEY, LIKED_KEY, REPORTED_KEY, REPORTED_KEY + '_log', MSGS_KEY,
+  UNLOCK_KEY, UNLOCK_LOG_KEY, ...BILLING_KEYS,
+];
+
+/**
+ * Data portability — return everything we hold about the user as one JSON object
+ * (the right to access/export under DPDP 2023 / GDPR). Keys are de-prefixed for
+ * readability. Caller can share/save the string.
+ */
+export async function exportMyData(): Promise<string> {
+  const entries = await AsyncStorage.multiGet(ALL_KEYS);
+  const data: Record<string, unknown> = {};
+  for (const [key, value] of entries) {
+    if (value == null) continue;
+    const label = key.replace(/^@csc\//, '');
+    try { data[label] = JSON.parse(value); } catch { data[label] = value; }
+  }
+  return JSON.stringify(
+    { app: 'Celestial Soul Connection', exportedAt: new Date().toISOString(), data },
+    null, 2,
+  );
+}
+
+/**
+ * Right to erasure — permanently remove all of the user's local data. (When the
+ * backend lands, this also calls the server delete endpoint; today it's local.)
+ */
+export async function deleteMyAccount(): Promise<void> {
+  await AsyncStorage.multiRemove(ALL_KEYS);
+  await AsyncStorage.removeItem('@csc/session');
+  await clearToken();
+}
+
+/* ----- contact unlock (mutual match → tier-based fee → logged consent) ----- */
+
+export async function isContactUnlocked(matchId: string): Promise<boolean> {
+  const ids = await getJSON<string[]>(UNLOCK_KEY, []);
+  return ids.includes(matchId);
+}
+
+/**
+ * Unlock contact for a mutual match. `fee` is the tier-resolved price (see
+ * billing.contactFeeFor — free tier ₹21, paid first 5 free then ₹21). Records an
+ * append-only consent/payment log entry (fee, payer, timestamp) — the audit trail
+ * required by the product rules — and bumps the global reveal counter so the
+ * paid free-tier allowance is tracked. Real gateway call slots in here later.
+ */
+export async function unlockContact(matchId: string, fee: number): Promise<void> {
+  const log = await getJSON<{ matchId: string; fee: number; payer: 'me'; ts: number }[]>(UNLOCK_LOG_KEY, []);
+  await AsyncStorage.setItem(UNLOCK_LOG_KEY, JSON.stringify([...log, { matchId, fee, payer: 'me', ts: Date.now() }]));
+  const ids = await getJSON<string[]>(UNLOCK_KEY, []);
+  if (!ids.includes(matchId)) await AsyncStorage.setItem(UNLOCK_KEY, JSON.stringify([...ids, matchId]));
+  await recordContactCharge();
 }
 
 /* ----- chat ----- */
