@@ -11,6 +11,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
 import { Text } from '../../src/components/Text';
 import { exportMyData, deleteMyAccount } from '../../src/data/store';
+import { signOut } from '../../src/data/session';
 import { getEntitlement, Entitlement } from '../../src/data/billing';
 import { useTheme, useThemeControls } from '../../src/theme/ThemeProvider';
 import { PALETTES, ThemeName } from '../../src/theme/palettes';
@@ -131,6 +132,8 @@ export default function StyleStudio() {
         <SettingRow t={t} label="Export my data" help="Download everything we hold about you" onPress={onExport} />
         <Hair t={t} />
         <SettingRow t={t} label="Delete my account" help="Permanently erase your data" danger onPress={onDelete} />
+        <Hair t={t} />
+        <SettingRow t={t} label="Sign out" help="Log out of this device" onPress={async () => { await signOut(); router.replace('/'); }} />
         <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.md }}>
           Birth & chat data are encrypted. Consent is logged to an append-only record. We never
           sell your data. DPDP 2023 · GDPR · CCPA.

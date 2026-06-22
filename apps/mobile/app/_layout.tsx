@@ -37,6 +37,8 @@ export default function RootLayout() {
           <StatusBarThemed />
           <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
             <Stack.Screen name="index" />
+            <Stack.Screen name="auth/signup" />
+            <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/phone" />
             <Stack.Screen name="auth/otp" />
             <Stack.Screen name="onboarding/birth-portal" />

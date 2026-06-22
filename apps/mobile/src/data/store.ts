@@ -14,6 +14,7 @@ import { Profile, MatchResult, PsychProfile, Message, BirthData } from './types'
 import { SEED_PROFILES } from './seedProfiles';
 import { rankCandidates, Me } from './matching';
 import { BILLING_KEYS, recordContactCharge } from './billing';
+import { clearToken } from './authApi';
 
 const PASSED_KEY = '@csc/passed';
 const LIKED_KEY = '@csc/liked';
@@ -206,6 +207,8 @@ export async function exportMyData(): Promise<string> {
  */
 export async function deleteMyAccount(): Promise<void> {
   await AsyncStorage.multiRemove(ALL_KEYS);
+  await AsyncStorage.removeItem('@csc/session');
+  await clearToken();
 }
 
 /* ----- contact unlock (mutual match → tier-based fee → logged consent) ----- */
