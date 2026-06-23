@@ -11,10 +11,14 @@ Auth endpoints — first-party signup/login with email + phone + password.
 import re
 from datetime import date
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
+from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.models import User, ConsentEvent, ConsentPurpose
@@ -22,6 +26,7 @@ from app.models import User, ConsentEvent, ConsentPurpose
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 CURRENT_NOTICE_VERSION = "2026-06-21"
+GOOGLE_ISSUERS = ("accounts.google.com", "https://accounts.google.com")
 PHONE_RE = re.compile(r"^\+?[0-9]{7,15}$")
 
 
@@ -120,8 +125,102 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
         user = q.filter(User.phone == _normalize_phone(ident)).first()
 
     # Constant-ish response: same error whether user missing or password wrong.
-    if not user or not verify_password(body.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="This account has been deactivated")
+    return _issue(user)
+
+
+# --------------------------------------------------------------------------- #
+# Google Sign-In                                                              #
+#                                                                             #
+# The mobile app runs the Google OAuth flow and sends us the resulting        #
+# credential. We VERIFY it server-side (the client is untrusted) and only     #
+# then create/lookup the user and issue OUR jwt. We accept an id_token        #
+# (preferred) or an access_token, and require the token's audience to match   #
+# one of our configured Google client IDs so a token minted for another app   #
+# can't be replayed here.                                                     #
+# --------------------------------------------------------------------------- #
+class GoogleIn(BaseModel):
+    id_token: str | None = None
+    access_token: str | None = None
+    dob: str | None = None  # required only when creating a NEW Google account (18+ gate)
+
+
+def _allowed_google_aud() -> set[str]:
+    return {c for c in (
+        settings.google_web_client_id,
+        settings.google_ios_client_id,
+        settings.google_android_client_id,
+    ) if c}
+
+
+def _verify_google(body: GoogleIn) -> dict:
+    """Verify a Google credential and return {sub, email, email_verified}."""
+    allowed = _allowed_google_aud()
+    if not allowed:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured on the server")
+
+    if body.id_token:
+        try:
+            info = google_id_token.verify_oauth2_token(body.id_token, google_requests.Request())
+        except ValueError:
+            raise HTTPException(status_code=401, detail="Invalid Google token")
+        if info.get("iss") not in GOOGLE_ISSUERS:
+            raise HTTPException(status_code=401, detail="Invalid Google token issuer")
+        if info.get("aud") not in allowed:
+            raise HTTPException(status_code=401, detail="Google token was not issued for this app")
+        return {"sub": info["sub"], "email": (info.get("email") or "").lower(), "email_verified": bool(info.get("email_verified"))}
+
+    if body.access_token:
+        try:
+            with httpx.Client(timeout=10) as c:
+                res = c.get("https://oauth2.googleapis.com/tokeninfo", params={"access_token": body.access_token})
+            res.raise_for_status()
+            data = res.json()
+        except Exception:
+            raise HTTPException(status_code=401, detail="Could not verify Google token")
+        if (data.get("aud") or data.get("azp")) not in allowed:
+            raise HTTPException(status_code=401, detail="Google token was not issued for this app")
+        return {"sub": data["sub"], "email": (data.get("email") or "").lower(), "email_verified": str(data.get("email_verified")).lower() == "true"}
+
+    raise HTTPException(status_code=422, detail="Provide a Google id_token or access_token")
+
+
+@router.post("/google", response_model=AuthOut)
+def google_auth(body: GoogleIn, db: Session = Depends(get_db)):
+    ident = _verify_google(body)
+    sub, email = ident["sub"], ident["email"]
+    if not email or not ident["email_verified"]:
+        raise HTTPException(status_code=403, detail="Your Google email must be verified")
+
+    user = db.query(User).filter((User.google_sub == sub) | (User.email == email)).first()
+    if user:
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="This account has been deactivated")
+        if not user.google_sub:  # link Google to an existing (e.g. password) account
+            user.google_sub = sub
+            db.commit()
+            db.refresh(user)
+        return _issue(user)
+
+    # New account — Google doesn't give us DOB, so the 18+ gate needs it from the client.
+    if not body.dob:
+        raise HTTPException(status_code=422, detail="dob_required")
+    if not _is_adult(body.dob):
+        raise HTTPException(status_code=403, detail="You must be 18 or older to join")
+
+    user = User(email=email, auth_provider="google", google_sub=sub, dob=body.dob, password_hash=None)
+    db.add(user)
+    db.flush()
+    db.add(ConsentEvent(
+        user_id=user.id,
+        purpose=ConsentPurpose.account_core,
+        granted=True,
+        notice_version=CURRENT_NOTICE_VERSION,
+        method="google_oauth",
+    ))
+    db.commit()
+    db.refresh(user)
     return _issue(user)

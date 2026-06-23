@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     astro_api_base_url: str = "http://localhost:8000"
     astro_api_key: str = ""
 
+    # Google Sign-In: the OAuth client IDs that may MINT id_tokens for our app.
+    # We accept tokens whose `aud` matches ANY configured client (web for Expo Go /
+    # web, ios/android for native builds). Set from env; never commit real values.
+    google_web_client_id: str = ""
+    google_ios_client_id: str = ""
+    google_android_client_id: str = ""
+
     class Config:
         env_file = ".env"
 

@@ -9,7 +9,8 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session } from './types';
-import { signup as apiSignup, login as apiLogin, clearToken, AuthError } from './authApi';
+import { signup as apiSignup, login as apiLogin, loginWithGoogle as apiGoogle, clearToken, AuthError } from './authApi';
+import { GoogleCredential } from './googleAuth';
 
 const SESSION_KEY = '@csc/session';
 
@@ -70,6 +71,39 @@ export async function signUpWithPassword(input: { email: string; phone: string; 
       return persist({ phone: input.phone, userId: 'local_' + Date.now(), onboarded: false, createdAt: Date.now() });
     }
     throw e;
+  }
+}
+
+/**
+ * Sign in with a verified Google credential. Sends it to /auth/google (which
+ * re-verifies server-side) and persists the returned session. Never dead-ends:
+ * if the backend is unreachable (dev) OR the account is new and still needs a DOB
+ * for the 18+ gate (`dob_required`), we fall back to a local session so the user
+ * proceeds into onboarding — where DOB + 18+ are captured before matching.
+ * (Production: collect DOB then call /auth/google again to create the server account.)
+ */
+export async function signInWithGoogle(cred: GoogleCredential): Promise<Session> {
+  const localFallback = async () => {
+    const existing = await getSession();
+    if (existing) return existing;
+    return persist({
+      phone: '',
+      userId: 'google_' + (cred.email ?? Date.now()),
+      email: cred.email,
+      provider: 'google',
+      onboarded: false,
+      createdAt: Date.now(),
+    });
+  };
+  try {
+    const res = await apiGoogle({ idToken: cred.idToken, accessToken: cred.accessToken });
+    const existing = await getSession();
+    return persist(existing ?? { phone: '', userId: res.userId, email: res.email, provider: 'google', onboarded: false, createdAt: Date.now() });
+  } catch (e) {
+    if (e instanceof AuthError && (e.offline || (e.status === 422 && /dob/i.test(e.message)))) {
+      return localFallback();
+    }
+    throw e; // real rejection (invalid token, deactivated, unverified email)
   }
 }
 

@@ -45,9 +45,10 @@ class User(Base):
     id = Column(String, primary_key=True, default=_uuid)
     email = Column(String, unique=True, nullable=False, index=True)
     phone = Column(String, unique=True, nullable=True, index=True)  # E.164; login + uniqueness
-    password_hash = Column(String, nullable=False)
-    auth_provider = Column(String, default="password")  # "password" now; "google" later
-    dob = Column(String, nullable=False)           # ISO date; enforced 18+ at signup
+    password_hash = Column(String, nullable=True)  # null for OAuth users (no password)
+    auth_provider = Column(String, default="password")  # "password" | "google"
+    google_sub = Column(String, unique=True, nullable=True, index=True)  # Google account id (sub claim)
+    dob = Column(String, nullable=True)            # ISO date; 18+ enforced at signup or in onboarding (OAuth)
     is_verified = Column(Boolean, default=False)   # KYC status (docs stored separately)
     intent_score = Column(Float, default=0.5)      # serious-intent signal (see psychology doc)
     is_active = Column(Boolean, default=True)      # false = offboarded defaulter
