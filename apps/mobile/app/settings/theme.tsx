@@ -31,7 +31,7 @@ export default function StyleStudio() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { themeName, setTheme, available, feelName, setFeel, availableFeels } = useThemeControls();
+  const { themeName, setTheme, mode, setMode, available, feelName, setFeel, availableFeels } = useThemeControls();
   const [ent, setEnt] = useState<Entitlement | null>(null);
   const [compatMode, setCompatMode] = useState<CompatibilityMode>(DEFAULT_COMPAT_MODE);
   useFocusEffect(useCallback(() => {
@@ -101,21 +101,35 @@ export default function StyleStudio() {
           <Text variant="title" color="textFaint">›</Text>
         </Pressable>
 
-        {/* ---- PALETTE ---- flat selectable rows, no box ---- */}
-        <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.xs }}>Colour palette</Text>
+        {/* ---- APPEARANCE (light / dark) ---- segmented toggle ---- */}
+        <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.xs }}>Appearance</Text>
+        <View style={{ flexDirection: 'row', backgroundColor: t.colors.bgSunken, borderRadius: t.radii.pill, padding: 4, marginTop: t.spacing.xs }}>
+          {(['dark', 'light'] as const).map((m) => {
+            const on = mode === m;
+            return (
+              <Pressable key={m} onPress={() => { haptic.light(); setMode(m); }}
+                style={{ flex: 1, paddingVertical: t.spacing.sm, borderRadius: t.radii.pill, alignItems: 'center', backgroundColor: on ? t.colors.primary : 'transparent' }}>
+                <Text variant="label" color={on ? 'textOnPrimary' : 'textMuted'}>{m === 'dark' ? '☾  Dark' : '☀  Light'}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* ---- THEME ---- flat selectable rows, no box ---- */}
+        <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.xs }}>Colour theme</Text>
         <View>
           {available.map((p, i) => {
-            const pal = PALETTES[p.name as ThemeName];
+            const pal = PALETTES[p.name as ThemeName][mode];
             const active = themeName === p.name;
             return (
               <SelectableRow key={p.name} t={t} active={active} first={i === 0}
                 onPress={() => { haptic.light(); setTheme(p.name as ThemeName); }}
                 title={pal.label}
-                subtitle={`${pal.mode === 'dark' ? 'Dark' : 'Light'}${p.name === 'warmDusk' ? ' · default' : ''}`}
+                subtitle={p.name === 'midnightViolet' ? 'Default' : undefined}
                 right={
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <LinearGradient colors={pal.gradients.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: 26, height: 26, borderRadius: 26 }} />
-                    <Sw color={pal.colors.accent} />
+                    <Sw color={pal.colors.highlight} />
                     <Sw color={pal.colors.bg} ring={pal.colors.border} />
                   </View>
                 }

@@ -38,7 +38,7 @@ export default function Questionnaire() {
       await setMyPsych(profile);
       await markOnboarded();
       haptic.success();
-      router.replace('/(tabs)/discover');
+      router.replace('/(tabs)/today');
     }
   };
 

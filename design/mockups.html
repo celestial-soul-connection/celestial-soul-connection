@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Celestial Soul Connection — Design Revamp Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Outfit:wght@300..700&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..600&family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400..700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     THEME SYSTEM — 4 distinct themes, each with light + dark.
+     Switch via [data-theme] + [data-mode] on <body>.
+     ============================================================ */
+  :root {
+    --r-sm: 10px; --r-md: 18px; --r-lg: 28px; --r-xl: 40px; --r-pill: 999px;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+  }
+
+  /* ---- THEME 1 · SACRED (calm, spacious, spiritual) ---- */
+  [data-theme="sacred"][data-mode="light"] {
+    --bg:#F6F1EA; --bg2:#FFFDFA; --sunken:#EDE6DB; --line:#E2D8C9;
+    --text:#2B2620; --muted:#7C7264; --faint:#A99E8D;
+    --primary:#B6794F; --primary-soft:#EFE0D2; --on-primary:#FFFDFA;
+    --accent:#7C8A6B; --grad:linear-gradient(135deg,#C68A5E,#9C6B45);
+    --display:'Cormorant Garamond',serif; --body:'Outfit',sans-serif; --serifw:600;
+  }
+  [data-theme="sacred"][data-mode="dark"] {
+    --bg:#1B1813; --bg2:#252019; --sunken:#15120E; --line:#3A332A;
+    --text:#F2EADF; --muted:#B3A696; --faint:#7C7062;
+    --primary:#D49A6E; --primary-soft:#33291F; --on-primary:#1B1813;
+    --accent:#A6B58C; --grad:linear-gradient(135deg,#D49A6E,#A66E45);
+    --display:'Cormorant Garamond',serif; --body:'Outfit',sans-serif; --serifw:600;
+  }
+
+  /* ---- THEME 2 · WARM (cozy, editorial, human, Hinge-warm) ---- */
+  [data-theme="warm"][data-mode="light"] {
+    --bg:#FBF3EF; --bg2:#FFFFFF; --sunken:#F4E7E0; --line:#EAD8CF;
+    --text:#34201C; --muted:#8A6B62; --faint:#B79A90;
+    --primary:#D8553F; --primary-soft:#FBE0D7; --on-primary:#FFFFFF;
+    --accent:#E0A24B; --grad:linear-gradient(135deg,#E8654A,#C9402B);
+    --display:'Fraunces',serif; --body:'Outfit',sans-serif; --serifw:560;
+  }
+  [data-theme="warm"][data-mode="dark"] {
+    --bg:#241715; --bg2:#2F1E1A; --sunken:#1A100E; --line:#43302A;
+    --text:#F7E8E2; --muted:#C29C92; --faint:#8A6B62;
+    --primary:#F0694F; --primary-soft:#3A211B; --on-primary:#241715;
+    --accent:#ECB05E; --grad:linear-gradient(135deg,#F0694F,#CE4630);
+    --display:'Fraunces',serif; --body:'Outfit',sans-serif; --serifw:560;
+  }
+
+  /* ---- THEME 3 · MODERN (bold, high-contrast, premium-tech) ---- */
+  [data-theme="modern"][data-mode="light"] {
+    --bg:#F4F4F2; --bg2:#FFFFFF; --sunken:#E9E9E5; --line:#DEDED8;
+    --text:#16161A; --muted:#5E5E68; --faint:#9A9AA4;
+    --primary:#5B3DF5; --primary-soft:#E6E0FE; --on-primary:#FFFFFF;
+    --accent:#0FB39A; --grad:linear-gradient(135deg,#6B4DFF,#4126D6);
+    --display:'Space Grotesk',sans-serif; --body:'Outfit',sans-serif; --serifw:700;
+  }
+  [data-theme="modern"][data-mode="dark"] {
+    --bg:#0C0C10; --bg2:#16161D; --sunken:#08080B; --line:#26262F;
+    --text:#F3F3F7; --muted:#9A9AA6; --faint:#5E5E6A;
+    --primary:#8A6BFF; --primary-soft:#211B3D; --on-primary:#0C0C10;
+    --accent:#22D3B5; --grad:linear-gradient(135deg,#8A6BFF,#5B3DF5);
+    --display:'Space Grotesk',sans-serif; --body:'Outfit',sans-serif; --serifw:700;
+  }
+
+  /* ---- THEME 4 · CELESTIAL (luxe, jewel + gold, mystical) ---- */
+  [data-theme="celestial"][data-mode="light"] {
+    --bg:#F3F0F7; --bg2:#FFFFFF; --sunken:#E9E3F1; --line:#DDD3EA;
+    --text:#241B33; --muted:#6E6184; --faint:#9F94B3;
+    --primary:#6E4FB3; --primary-soft:#E8DEF6; --on-primary:#FFFFFF;
+    --accent:#C9A227; --grad:linear-gradient(135deg,#8E6FD0,#5E3FA8);
+    --display:'Instrument Serif',serif; --body:'Outfit',sans-serif; --serifw:400;
+  }
+  [data-theme="celestial"][data-mode="dark"] {
+    --bg:#0E0B1A; --bg2:#181230; --sunken:#080612; --line:#2A2150;
+    --text:#EFE9FB; --muted:#A89BC9; --faint:#6E6190;
+    --primary:#B79CFF; --primary-soft:#221A45; --on-primary:#0E0B1A;
+    --accent:#E6C25A; --grad:linear-gradient(135deg,#B79CFF,#7E5FD6);
+    --display:'Instrument Serif',serif; --body:'Outfit',sans-serif; --serifw:400;
+  }
+
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-font-smoothing:antialiased; }
+  body { background:#0a0a0c; color:#e8e8ea; font-family:'Outfit',sans-serif; padding:0 0 80px; }
+
+  /* ---- Control bar ---- */
+  .bar {
+    position:sticky; top:0; z-index:100; background:rgba(12,12,14,.92);
+    backdrop-filter:blur(14px); border-bottom:1px solid #222; padding:18px 24px;
+    display:flex; flex-wrap:wrap; gap:18px; align-items:center;
+  }
+  .bar h1 { font-family:'Fraunces',serif; font-weight:500; font-size:18px; letter-spacing:-.3px; margin-right:8px; }
+  .bar .group { display:flex; gap:6px; align-items:center; }
+  .bar .lbl { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:#888; margin-right:4px; }
+  .pill { padding:7px 14px; border-radius:999px; border:1px solid #333; background:#1a1a1e;
+    color:#cfcfd4; font-size:13px; cursor:pointer; font-family:'Outfit'; transition:.15s; }
+  .pill:hover { border-color:#555; }
+  .pill.on { background:#fff; color:#111; border-color:#fff; font-weight:600; }
+  .hint { color:#777; font-size:12.5px; margin-left:auto; }
+
+  /* ---- Phone grid ---- */
+  .stage { display:flex; flex-wrap:wrap; gap:40px 36px; justify-content:center; padding:48px 24px; }
+  .phone-wrap { display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .phone-label { font-size:12.5px; letter-spacing:2px; text-transform:uppercase; color:#888; font-weight:500; }
+  .phone {
+    width:300px; height:650px; border-radius:46px; padding:11px;
+    background:linear-gradient(150deg,#2a2a30,#101013); box-shadow:0 30px 80px rgba(0,0,0,.6), inset 0 0 0 1px #3a3a42;
+  }
+  .screen {
+    width:100%; height:100%; border-radius:36px; overflow:hidden; position:relative;
+    background:var(--bg); color:var(--text); font-family:var(--body);
+    display:flex; flex-direction:column;
+  }
+  .notch { position:absolute; top:0; left:50%; transform:translateX(-50%); width:120px; height:26px;
+    background:#0c0c0f; border-radius:0 0 16px 16px; z-index:50; }
+  .scroll { flex:1; overflow:hidden; position:relative; }
+
+  /* status bar */
+  .statusbar { display:flex; justify-content:space-between; padding:14px 22px 4px; font-size:12px; font-weight:600; color:var(--text); z-index:40; }
+
+  /* generic helpers used inside screens */
+  .h-serif { font-family:var(--display); font-weight:var(--serifw); line-height:1.05; letter-spacing:-.5px; }
+  .eyebrow { font-size:10px; letter-spacing:2.4px; text-transform:uppercase; color:var(--faint); font-weight:600; }
+  .muted { color:var(--muted); }
+  .chip { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:var(--r-pill);
+    background:var(--bg2); border:1px solid var(--line); font-size:12px; color:var(--text); font-weight:500; }
+  .chip.soft { background:var(--primary-soft); border-color:transparent; color:var(--primary); }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:15px; border-radius:var(--r-pill);
+    background:var(--grad); color:var(--on-primary); font-weight:600; font-size:15px; border:none; }
+  .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
+
+  /* tab bar */
+  .tabbar { display:flex; justify-content:space-around; padding:14px 0 26px; background:var(--bg2);
+    border-top:1px solid var(--line); }
+  .tabbar .tab { font-size:21px; color:var(--faint); position:relative; }
+  .tabbar .tab.on { color:var(--primary); }
+  .tabbar .tab.on::after { content:''; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%);
+    width:5px; height:5px; border-radius:50%; background:var(--primary); }
+
+  /* slot pips */
+  .pips { display:flex; gap:6px; }
+  .pip { width:11px; height:11px; border-radius:50%; border:1.5px solid var(--primary); }
+  .pip.full { background:var(--primary); }
+
+  /* compatibility ring */
+  .ring { width:104px; height:104px; border-radius:50%; display:grid; place-items:center; position:relative;
+    background:conic-gradient(var(--primary) calc(var(--p)*1%), var(--line) 0); }
+  .ring::before { content:''; position:absolute; inset:9px; border-radius:50%; background:var(--bg); }
+  .ring .val { position:relative; font-family:var(--display); font-weight:var(--serifw); font-size:30px; }
+  .ring.small { width:64px; height:64px; }
+  .ring.small::before { inset:6px; }
+  .ring.small .val { font-size:18px; }
+
+  /* bars */
+  .track { height:7px; border-radius:7px; background:var(--sunken); overflow:hidden; }
+  .fill { height:100%; border-radius:7px; background:var(--grad); }
+
+  /* photo blocks use gradient placeholders (no external imgs) */
+  .photo { background:
+      radial-gradient(120% 90% at 30% 20%, rgba(255,255,255,.18), transparent 60%),
+      var(--grad);
+    position:relative; }
+  .photo .scrim { position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,.72) 8%, rgba(0,0,0,.1) 45%, transparent 70%); }
+  .photo .ph-face { position:absolute; inset:0; display:grid; place-items:center; font-size:64px; opacity:.32; }
+
+  .sec { padding:0 22px; }
+  .divider { height:1px; background:var(--line); }
+  .row { display:flex; align-items:center; }
+  .between { justify-content:space-between; }
+  .stars { color:var(--accent); letter-spacing:2px; }
+  .grain { position:absolute; inset:0; pointer-events:none; opacity:.04; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+</style>
+</head>
+<body data-theme="sacred" data-mode="dark">
+
+<div class="bar">
+  <h1>Celestial · design revamp</h1>
+  <div class="group">
+    <span class="lbl">Theme</span>
+    <button class="pill on" data-set="theme" data-val="sacred">Sacred</button>
+    <button class="pill" data-set="theme" data-val="warm">Warm</button>
+    <button class="pill" data-set="theme" data-val="modern">Modern</button>
+    <button class="pill" data-set="theme" data-val="celestial">Celestial</button>
+  </div>
+  <div class="group">
+    <span class="lbl">Mode</span>
+    <button class="pill" data-set="mode" data-val="light">Light</button>
+    <button class="pill on" data-set="mode" data-val="dark">Dark</button>
+  </div>
+  <span class="hint">Tap to switch · all 4 screens update live</span>
+</div>
+
+<div class="stage" id="stage"></div>
+
+<script>
+/* ---------- screen templates (reused across every theme) ---------- */
+function statusbar(){return `<div class="statusbar"><span>9:41</span><span>✦ ◗ ▮</span></div>`;}
+
+function welcome(){return `
+<div class="screen">${statusbar()}
+  <div class="scroll" style="display:flex;flex-direction:column">
+    <div class="photo" style="flex:1;min-height:340px">
+      <div class="ph-face">☾</div><div class="scrim"></div>
+      <div style="position:absolute;top:20px;left:22px" class="eyebrow" >✦ Soul alignment</div>
+    </div>
+    <div class="sec" style="padding:24px 22px 18px;background:var(--bg2);margin-top:-28px;border-radius:28px 28px 0 0;position:relative">
+      <div class="eyebrow">Intentional connection</div>
+      <div class="h-serif" style="font-size:36px;margin-top:8px">Find the soul<br><span style="font-style:italic;color:var(--primary)">that aligns</span> with yours.</div>
+      <p class="muted" style="font-size:14px;line-height:1.5;margin-top:14px">One meaningful match at a time — matched on who you really are: attachment, values & goals, with a celestial layer.</p>
+      <div class="row" style="gap:18px;margin:20px 0">
+        <span class="chip">✓ Verified 18+</span><span class="chip">No number sharing</span>
+      </div>
+      <button class="btn" style="width:100%">Begin your alignment</button>
+      <button class="btn ghost" style="width:100%;margin-top:10px">I already have an account</button>
+    </div>
+  </div>
+</div>`;}
+
+function discover(){return `
+<div class="screen">${statusbar()}
+  <div class="sec row between" style="padding:6px 22px 14px">
+    <div><div class="eyebrow">Your connection</div><div class="h-serif" style="font-size:26px">Today</div></div>
+    <div class="row" style="gap:12px"><div class="pips"><div class="pip full"></div><div class="pip"></div></div>
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center">⚙</div></div>
+  </div>
+  <div class="scroll sec" style="padding:0 18px">
+    <div style="border-radius:28px;overflow:hidden;height:420px;position:relative" class="photo">
+      <div class="ph-face">♀</div><div class="scrim"></div>
+      <div style="position:absolute;top:16px;right:16px" class="ring small" data-p="88"><span class="val" style="color:#fff">88</span></div>
+      <div style="position:absolute;left:18px;right:18px;bottom:18px;color:#fff">
+        <div class="row" style="gap:8px;align-items:center"><span class="h-serif" style="font-size:30px;color:#fff">Aria, 29</span><span style="background:var(--accent);border-radius:50%;width:20px;height:20px;display:grid;place-items:center;font-size:11px;color:#fff">✓</span></div>
+        <div style="font-size:13px;opacity:.9;margin-top:3px">Pune · Designer · Unmarried</div>
+        <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:12px">
+          <span style="background:rgba(255,255,255,.16);color:#fff;padding:6px 11px;border-radius:999px;font-size:11.5px">Secure attachment 91%</span>
+          <span style="background:rgba(255,255,255,.16);color:#fff;padding:6px 11px;border-radius:999px;font-size:11.5px">Shared values 84%</span>
+        </div>
+        <div style="font-size:12.5px;opacity:.85;margin-top:12px">✦ See full reading →</div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:center;gap:28px;margin-top:20px">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--line);display:grid;place-items:center;font-size:20px;color:var(--muted)">✕</div>
+      <div style="width:68px;height:68px;border-radius:50%;background:var(--grad);display:grid;place-items:center;font-size:26px;color:var(--on-primary)">♥</div>
+    </div>
+    <p class="muted" style="text-align:center;font-size:11.5px;margin-top:12px">Decline freely — it frees the slot. We won't flood you with replacements.</p>
+  </div>
+  <div class="tabbar"><span class="tab on">✦</span><span class="tab">♥</span><span class="tab">◉</span></div>
+</div>`;}
+
+function profile(){return `
+<div class="screen">${statusbar()}
+  <div class="scroll">
+    <div class="photo" style="height:300px;position:relative">
+      <div class="ph-face">♀</div><div class="scrim"></div>
+      <div style="position:absolute;left:22px;bottom:20px;color:#fff">
+        <div class="eyebrow" style="color:rgba(255,255,255,.8)">Your profile</div>
+        <div class="h-serif" style="font-size:34px;color:#fff;margin-top:2px">Meera, 27</div>
+        <div style="font-size:13px;opacity:.9;margin-top:2px">Woman · Unmarried · Mumbai</div>
+      </div>
+    </div>
+    <div class="sec" style="padding:24px 22px">
+      <div class="eyebrow">About you</div>
+      <div class="h-serif" style="font-size:22px;margin-top:8px;line-height:1.25">Homebody at heart, steady hands.</div>
+      <p class="muted" style="font-size:14px;line-height:1.55;margin-top:10px">I want a calm, kind partnership — someone who shows up, laughs easily, and wants a family one day.</p>
+
+      <div class="eyebrow" style="margin-top:26px">Verified</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+        <span class="chip soft">✓ 18+</span><span class="chip soft">✓ Phone</span><span class="chip soft">✓ Photo</span><span class="chip">○ ID</span>
+      </div>
+
+      <div class="eyebrow" style="margin-top:26px">Birth & basics · private</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
+        <span class="chip">☾ 5 Dec 1997</span><span class="chip">◷ 04:20</span><span class="chip">📍 Mumbai</span>
+      </div>
+
+      <div class="eyebrow" style="margin-top:26px">How we match you</div>
+      <div style="margin-top:10px;border:1px solid var(--line);border-radius:18px;overflow:hidden">
+        <div class="row between" style="padding:13px 16px;background:var(--primary-soft)"><span style="color:var(--primary);font-weight:600">⚖ Balanced</span><span style="color:var(--primary)">✓</span></div>
+        <div class="row between" style="padding:13px 16px;border-top:1px solid var(--line)"><span class="muted">✶ Psychological</span></div>
+        <div class="row between" style="padding:13px 16px;border-top:1px solid var(--line)"><span class="muted">☾ Astrological</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="tabbar"><span class="tab">✦</span><span class="tab">♥</span><span class="tab on">◉</span></div>
+</div>`;}
+
+function reading(){return `
+<div class="screen">${statusbar()}
+  <div class="scroll">
+    <div style="padding:8px 22px 20px">
+      <div class="eyebrow">Compatibility reading</div>
+      <div class="h-serif" style="font-size:28px;margin-top:6px">You & Aria</div>
+      <div class="row" style="gap:18px;margin-top:18px;align-items:center">
+        <div class="ring" data-p="88"><span class="val">88</span></div>
+        <div style="flex:1">
+          <div class="row between"><span class="muted" style="font-size:13px">Psychological</span><span style="font-weight:600">91%</span></div>
+          <div class="track" style="margin:5px 0 12px"><div class="fill" style="width:91%"></div></div>
+          <div class="row between"><span class="muted" style="font-size:13px">Astrological</span><span style="font-weight:600">82%</span></div>
+          <div class="track" style="margin:5px 0 0"><div class="fill" style="width:82%"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:18px;padding:14px 16px;border-left:2px solid var(--accent);background:var(--bg2);border-radius:0 14px 14px 0">
+        <span class="stars">✦</span> <span style="font-style:italic;font-family:var(--display);font-size:16px">The stars and psychology agree — both point to a strong, steady fit.</span>
+      </div>
+
+      <div class="eyebrow" style="margin-top:26px">Why you align</div>
+      <div style="margin-top:12px">
+        ${['Secure attachment','Shared family values','Conflict repair','Life intentions'].map((l,i)=>`
+        <div class="row between" style="margin-bottom:12px"><span style="font-size:14px">${l}</span><span class="muted" style="font-size:13px">${[94,88,83,79][i]}%</span></div>
+        <div class="track" style="margin-top:-6px;margin-bottom:14px"><div class="fill" style="width:${[94,88,83,79][i]}%"></div></div>`).join('')}
+      </div>
+      <button class="btn" style="width:100%;margin-top:6px">Open a thread</button>
+      <p class="muted" style="font-size:11px;text-align:center;margin-top:14px;padding:0 10px">Astrology is a complementary lens, never the sole verdict. Trust your own sense of connection.</p>
+    </div>
+  </div>
+</div>`;}
+
+const screens = [['Welcome',welcome],['Discover · slots',discover],['Profile',profile],['Compatibility',reading]];
+function render(){
+  document.getElementById('stage').innerHTML = screens.map(([label,fn])=>`
+    <div class="phone-wrap"><div class="phone-label">${label}</div>
+      <div class="phone"><div class="notch"></div>${fn()}</div></div>`).join('');
+  // set ring percentages
+  document.querySelectorAll('.ring').forEach(r=>r.style.setProperty('--p', r.dataset.p));
+}
+render();
+
+document.querySelectorAll('.pill').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const set=btn.dataset.set, val=btn.dataset.val;
+    document.body.setAttribute('data-'+set, val);
+    document.querySelectorAll(`.pill[data-set="${set}"]`).forEach(b=>b.classList.toggle('on', b===btn));
+    render();
+  });
+});
+</script>
+</body>
+</html>

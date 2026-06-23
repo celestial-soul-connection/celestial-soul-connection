@@ -34,7 +34,7 @@ export default function LogIn() {
     try {
       const s = await logInWithPassword(identifier.trim(), password);
       haptic.success();
-      router.replace(s.onboarded ? '/(tabs)/discover' : '/onboarding/birth-portal');
+      router.replace(s.onboarded ? '/(tabs)/today' : '/onboarding/birth-portal');
     } catch (e) {
       haptic.error();
       setError(e instanceof AuthError ? e.message : 'Could not log you in. Try again.');

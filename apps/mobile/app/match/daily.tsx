@@ -17,9 +17,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
+import { SkyBackground } from '../../src/components/fx/SkyBackground';
+import { SoulMerge } from '../../src/components/fx/SoulMerge';
 import { SwipeCard } from '../../src/components/fx/SwipeCard';
-import { GlassCard } from '../../src/components/fx/GlassCard';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
 import { Chip } from '../../src/components/Chip';
@@ -43,6 +43,10 @@ export default function DailyMatch() {
   const [gender, setGender] = useState<Gender | undefined>();
   // The candidate currently surfaced into an open slot (one at a time).
   const [candidate, setCandidate] = useState<MatchResult | null>(null);
+  // The daily ritual: a calm "your soul has arrived" moment before the card is
+  // shown, so the introduction feels chosen rather than dealt. Keyed by candidate
+  // id so a freshly delivered soul always gets its reveal moment.
+  const [revealedId, setRevealedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -118,11 +122,11 @@ export default function DailyMatch() {
 
   if (!view) {
     return (
-      <CinematicBackground>
+      <SkyBackground>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={t.colors.primary} />
         </View>
-      </CinematicBackground>
+      </SkyBackground>
     );
   }
 
@@ -131,58 +135,91 @@ export default function DailyMatch() {
   const slotsFull = view.openCount === 0;
 
   return (
-    <CinematicBackground>
+    <SkyBackground>
       <View style={{ flex: 1, paddingTop: insets.top + t.spacing.md, paddingBottom: insets.bottom + 80 }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
           <View>
-            <Text variant="overline" color="textFaint" uppercase>Your connection{view.capacity > 1 ? 's' : ''}</Text>
-            <Text variant="displayLg">Slots</Text>
+            <Text variant="overline" color="textFaint" uppercase>Today’s soul</Text>
+            <Text variant="displayLg">One at a time</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-            <SlotPips t={t} view={view} />
-            <Pressable onPress={() => router.push('/settings/theme')} hitSlop={12}
-              style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.colors.bgElevated, borderWidth: 1, borderColor: t.colors.border }}>
-              <Text variant="title" color="textMuted">⚙</Text>
-            </Pressable>
-          </View>
+          <SlotPips t={t} view={view} />
         </View>
 
         {/* One candidate at a time — no endless stack */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: t.spacing.md }}>
-          {candidate ? (
+          {candidate && revealedId !== candidate.profile.id ? (
+            <MatchReveal t={t} m={candidate} onReveal={() => { haptic.medium(); setRevealedId(candidate.profile.id); }} />
+          ) : candidate ? (
             <SwipeCard onLike={() => onLike(candidate)} onPass={() => onPass(candidate)} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
               <MatchCardBody m={candidate} t={t} width={width} height={height} onReading={() => router.push({ pathname: '/match/[id]/report', params: { id: candidate.profile.id } })} />
             </SwipeCard>
           ) : slotsFull ? (
             <Empty t={t} title={`Your ${activeCount > 1 ? activeCount + ' connections are' : 'connection is'} open`}
               body="Focus on who you've matched with. A slot frees up if a connection ends — that's the point: real attention, not endless scrolling."
-              cta="Go to Matches" onCta={() => router.push('/(tabs)/matches')} />
+              cta="Go to your Today" onCta={() => router.push('/(tabs)/today')} />
           ) : capReached ? (
             <Empty t={t} title="That's this week's introductions"
-              body="We deliver a small number of genuine, curated matches each week — never a feed to grind through. Your next one arrives soon."
-              cta="See who you've matched" onCta={() => router.push('/(tabs)/matches')} />
+              body="We deliver a small number of genuine, curated souls each week — never a feed to grind. Your Today still has a reading and your connections waiting."
+              cta="Open Today" onCta={() => router.push('/(tabs)/today')} />
           ) : (
-            <Empty t={t} title="No one to introduce right now"
-              body="We only surface people who genuinely fit your lens. A fresh, verified candidate will arrive when there's a real match."
-              cta="Adjust how we match you" onCta={() => router.push('/settings/theme')} />
+            <Empty t={t} title="No new soul to introduce yet"
+              body="We only surface people who genuinely fit your lens. While the stars align the next one, your Today has a reading and a gentle intention."
+              cta="Open Today" onCta={() => router.push('/(tabs)/today')} />
           )}
         </View>
 
-        {/* Opt-in / decline — the only two choices (no hoarding) */}
-        {candidate && (
+        {/* Opt-in / decline — only after the soul is revealed (no hoarding) */}
+        {candidate && revealedId === candidate.profile.id && (
           <View style={{ alignItems: 'center', paddingHorizontal: t.spacing.xl, gap: t.spacing.sm }}>
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl }}>
               <RoundBtn t={t} label="✕" tone="danger" onPress={() => onPass(candidate)} />
               <RoundBtn t={t} label="♥" tone="success" big onPress={() => onLike(candidate)} />
             </View>
             <Text variant="caption" color="textFaint" center>
-              Decline freely — it’s free and frees the slot. We won’t flood you with replacements.
+              Pass freely — it’s never held against you. We won’t flood you with replacements.
             </Text>
           </View>
         )}
       </View>
-    </CinematicBackground>
+    </SkyBackground>
+  );
+}
+
+/**
+ * MatchReveal — the daily ritual. Before the card is shown, a calm anticipation
+ * moment: the two-lights animation, a teaser of the alignment, and a deliberate
+ * "meet them" tap. Makes the introduction feel chosen, not dealt (vision §6).
+ */
+function MatchReveal({ t, m, onReveal }: { t: ReturnType<typeof useTheme>; m: MatchResult; onReveal: () => void }) {
+  const soulPrint = Math.round(m.fused?.psych?.score ?? m.score);
+  const starSync = m.fused?.astro ? Math.round(m.fused.astro.compositePct) : null;
+  return (
+    <View style={{ alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
+      <SoulMerge size={150} />
+      <Text variant="overline" color="highlight" uppercase style={{ marginTop: t.spacing.lg }}>Today’s soul has arrived</Text>
+      <Text variant="displayLg" center style={{ marginTop: t.spacing.xs }}>One soul, chosen for you</Text>
+      <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm, maxWidth: 280 }}>
+        Not a feed to scroll — one person we believe is genuinely meant for yours, read from your
+        Soul Print{starSync !== null ? ' and aligned by your Star Sync' : ''}.
+      </Text>
+      <View style={{ flexDirection: 'row', gap: t.spacing.md, marginTop: t.spacing.lg }}>
+        <RevealStat t={t} label="Soul Print" pct={soulPrint} />
+        {starSync !== null && <RevealStat t={t} label="Star Sync" pct={starSync} />}
+      </View>
+      <View style={{ marginTop: t.spacing.xl, width: '100%' }}>
+        <Button label="Meet them  →" onPress={onReveal} />
+      </View>
+    </View>
+  );
+}
+
+function RevealStat({ t, label, pct }: { t: ReturnType<typeof useTheme>; label: string; pct: number }) {
+  return (
+    <View style={{ alignItems: 'center', backgroundColor: t.colors.glass, borderWidth: 1, borderColor: t.colors.border, borderRadius: t.radii.lg, paddingHorizontal: t.spacing.lg, paddingVertical: t.spacing.md, minWidth: 110 }}>
+      <Text variant="overline" color="textFaint" uppercase>{label}</Text>
+      <Text variant="displayLg" color="highlight">{pct}%</Text>
+    </View>
   );
 }
 
@@ -209,14 +246,9 @@ function MatchCardBody({ m, t, width, height, onReading }: { m: MatchResult; t: 
       <Image source={m.profile.photo} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} />
       <LinearGradient colors={['transparent', 'rgba(10,6,16,0.5)', 'rgba(10,6,16,0.95)']} locations={[0.35, 0.65, 1]} style={StyleSheet.absoluteFill} />
 
-      {/* Score ring top-right */}
+      {/* Score ring top-right — the signature gold ring */}
       <View style={{ position: 'absolute', top: t.spacing.lg, right: t.spacing.lg, alignItems: 'center' }}>
-        <CompatibilityRing score={m.score} size={76} />
-        {m.fused?.astro && (
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: t.radii.pill, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6 }}>
-            <Text variant="caption" color="textOnImage" onImage>psych+astro</Text>
-          </View>
-        )}
+        <CompatibilityRing score={m.score} size={64} variant="soul" />
       </View>
 
       {/* Bottom info */}
@@ -234,17 +266,28 @@ function MatchCardBody({ m, t, width, height, onReading }: { m: MatchResult; t: 
         </Text>
         <Text variant="body" color="textOnImageMuted" onImage style={{ marginTop: t.spacing.sm }} numberOfLines={1}>{m.profile.blurb}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.md }}>
-          {m.reasons.slice(0, 3).map((r) => (
-            <View key={r.dim} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
-              <Text variant="label" color="textOnImage" onImage>{r.dim}</Text>
-              <Text variant="label" color="textOnImageMuted" onImage>{r.pct}%</Text>
-            </View>
-          ))}
+          <SoulChip t={t} label="Soul Print" pct={Math.round(m.fused?.psych?.score ?? m.score)} />
+          {m.fused?.astro && <SoulChip t={t} label="Star Sync" pct={Math.round(astroPct(m))} />}
         </View>
         <Pressable onPress={onReading} style={{ marginTop: t.spacing.lg, alignSelf: 'flex-start' }}>
           <Text variant="label" color="textOnImage" onImage>✦ See full reading  →</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+/** Star Sync percentage from the fused astro result. */
+function astroPct(m: MatchResult): number {
+  return m.fused?.astro?.compositePct ?? 0;
+}
+
+/** A glass pill over the photo showing a Soul Print / Star Sync score. */
+function SoulChip({ t, label, pct }: { t: ReturnType<typeof useTheme>; label: string; pct: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: t.colors.glass, borderWidth: 1, borderColor: t.colors.border, borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
+      <Text variant="label" color="textOnImage" onImage>{label}</Text>
+      <Text variant="label" color="textOnImageMuted" onImage>{pct}%</Text>
     </View>
   );
 }
@@ -261,14 +304,15 @@ function RoundBtn({ t, label, tone, onPress, big }: { t: ReturnType<typeof useTh
 
 function Empty({ t, title, body, cta, onCta }: { t: ReturnType<typeof useTheme>; title: string; body: string; cta?: string; onCta?: () => void }) {
   return (
-    <GlassCard glow style={{ marginHorizontal: t.spacing.xl, alignItems: 'center' }}>
-      <Text variant="headline" center>{title}</Text>
-      <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm }}>{body}</Text>
+    <View style={{ alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
+      <SoulMerge size={130} />
+      <Text variant="headline" center style={{ marginTop: t.spacing.lg }}>{title}</Text>
+      <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm, maxWidth: 280 }}>{body}</Text>
       {cta && onCta && (
-        <View style={{ marginTop: t.spacing.lg, width: '100%' }}>
+        <View style={{ marginTop: t.spacing.xl, width: '100%' }}>
           <Button label={cta} variant="secondary" onPress={onCta} />
         </View>
       )}
-    </GlassCard>
+    </View>
   );
 }

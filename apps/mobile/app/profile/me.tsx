@@ -4,24 +4,26 @@
  * inputs. Interests are tappable chips; intentions are segmented selectors.
  * Everything saves to the local store and feeds matching + the report.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, TextInput, Pressable, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MotiView } from 'moti';
 import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
 import { Reveal } from '../../src/components/fx/Reveal';
+import { SettingsSheet } from '../../src/components/SettingsSheet';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
 import {
-  PhotoBlock, PromptBlock, VitalChips, VerifiedCluster, VerifiedBadge, SectionLabel, Hairline,
+  PhotoBlock, PromptBlock, VitalChips, VerifiedBadge, SectionLabel, Hairline,
 } from '../../src/components/profile/ProfileKit';
+import { TrustLadder } from '../../src/components/TrustLadder';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { INTEREST_TAGS, LifeIntentions, BirthData, Gender, SeekingPref, MaritalStatus, maritalLabel } from '../../src/data/types';
 import {
   getMyInterests, setMyInterests, getMyIntentions, setMyIntentions, getMyProfile, setMyProfile,
-  getMyBirth, getMyAge, getMyGender, getMySeeking, getMyMaritalStatus,
+  getMyBirth, getMyAge, getMyGender, getMySeeking, getMyMaritalStatus, isIdVerified,
 } from '../../src/data/store';
 import { haptic } from '../../src/lib/haptics';
 
@@ -37,6 +39,7 @@ export default function MyProfile() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
@@ -45,6 +48,7 @@ export default function MyProfile() {
   const [intentions, setIntentions] = useState<LifeIntentions>({});
   const [photoVerifying, setPhotoVerifying] = useState(false);
   const [photoVerified, setPhotoVerified] = useState(false);
+  const [idVerified, setIdVerified] = useState(false);
   // Read-only birth/identity facts (set during onboarding, shown for transparency).
   const [birth, setBirth] = useState<BirthData | undefined>();
   const [age, setAge] = useState<number | undefined>();
@@ -52,7 +56,7 @@ export default function MyProfile() {
   const [seeking, setSeeking] = useState<SeekingPref | undefined>();
   const [marital, setMarital] = useState<MaritalStatus | undefined>();
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     (async () => {
       const p = await getMyProfile();
       setName(p.name ?? ''); setBio(p.bio ?? ''); setPhoto(p.photos?.[0] ?? null);
@@ -63,8 +67,9 @@ export default function MyProfile() {
       setGender(await getMyGender());
       setSeeking(await getMySeeking());
       setMarital(await getMyMaritalStatus());
+      setIdVerified(await isIdVerified());
     })();
-  }, []);
+  }, []));
 
   const pickPhoto = async () => {
     haptic.light();
@@ -118,8 +123,15 @@ export default function MyProfile() {
           <Pressable onPress={(e) => { e.stopPropagation?.(); router.back(); }} hitSlop={12} style={{ position: 'absolute', top: insets.top + t.spacing.sm, left: t.spacing.lg }}>
             <Text variant="headline" color="textOnImage" onImage>‹</Text>
           </Pressable>
-          <Pressable onPress={(e) => { e.stopPropagation?.(); router.push('/settings/theme'); }} hitSlop={12} style={{ position: 'absolute', top: insets.top + t.spacing.sm, right: t.spacing.lg }}>
-            <Text variant="headline" color="textOnImage" onImage>⚙</Text>
+          <Pressable
+            onPress={(e) => { e.stopPropagation?.(); haptic.light(); setSettingsOpen(true); }}
+            hitSlop={12}
+            style={{
+              position: 'absolute', top: insets.top + t.spacing.sm, right: t.spacing.lg,
+              width: 40, height: 40, borderRadius: 40, alignItems: 'center', justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.16)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
+            }}>
+            <Text variant="title" color="textOnImage" onImage>⚙</Text>
           </Pressable>
         </Pressable>
 
@@ -141,18 +153,15 @@ export default function MyProfile() {
             />
           </Reveal>
 
-          {/* Verified — granular trust signals (TrulyMadly-style) */}
+          {/* Trust ladder — first-class verification surface (vision §4.3) */}
           <Reveal index={1}>
-            <SectionLabel style={{ marginTop: t.spacing['2xl'] }}>Verified</SectionLabel>
-            <VerifiedCluster signals={[
-              { label: '18+', on: !!age },
-              { label: 'Phone', on: true },
-              { label: 'Photo', on: photoVerified },
-              { label: 'ID', on: false },
+            <SectionLabel style={{ marginTop: t.spacing['2xl'] }}>Trust &amp; verification</SectionLabel>
+            <TrustLadder rungs={[
+              { key: 'age', label: '18+ confirmed', why: 'Everyone here is an adult. Set from your birth date.', done: !!age },
+              { key: 'phone', label: 'Phone verified', why: 'A real, reachable person — not a throwaway account.', done: true },
+              { key: 'photo', label: 'Photo verified', why: 'Confirms your photos are really you. Builds instant trust.', done: photoVerified, actionLabel: photoVerifying ? 'Verifying…' : 'Verify', onAction: photo ? verifyPhoto : pickPhoto },
+              { key: 'id', label: 'ID verified', why: 'The strongest signal of a serious, genuine soul — via DigiLocker. Documents never stored.', done: idVerified, actionLabel: 'Verify', onAction: () => router.push('/verify/identity') },
             ]} />
-            <Text variant="caption" color="textFaint" style={{ marginTop: t.spacing.sm }}>
-              More verified signals raise your trust standing — and how often you're shown.
-            </Text>
           </Reveal>
 
           {/* Birth & basics — chip vitals, NOT a table. Private. */}
@@ -232,12 +241,25 @@ export default function MyProfile() {
             </Pressable>
           </Reveal>
 
+          {/* Settings entry — clean row, opens the drawer */}
+          <Pressable
+            onPress={() => { haptic.light(); setSettingsOpen(true); }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md, marginTop: t.spacing['2xl'], paddingVertical: t.spacing.md, borderTopWidth: 1, borderTopColor: t.colors.border }}>
+            <Text variant="title" color="highlight" style={{ width: 24, textAlign: 'center' }}>⚙</Text>
+            <View style={{ flex: 1 }}>
+              <Text variant="title">Settings</Text>
+              <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>Theme & appearance, membership, privacy</Text>
+            </View>
+            <Text variant="title" color="textFaint">›</Text>
+          </Pressable>
+
           <View style={{ gap: t.spacing.md, marginTop: t.spacing.xl }}>
             <Button label="Save profile" onPress={save} />
             <Button label="Retake my blueprint" variant="ghost" onPress={() => router.push('/onboarding/questionnaire')} />
           </View>
         </View>
       </ScrollView>
+      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </CinematicBackground>
   );
 }

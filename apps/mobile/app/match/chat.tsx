@@ -12,7 +12,7 @@ import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
+import { SkyBackground } from '../../src/components/fx/SkyBackground';
 import { GlassCard } from '../../src/components/fx/GlassCard';
 import { Text } from '../../src/components/Text';
 import { useTheme } from '../../src/theme/ThemeProvider';
@@ -74,7 +74,7 @@ export default function Chat() {
   };
 
   return (
-    <CinematicBackground>
+    <SkyBackground>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         {/* Header */}
         <View style={{ paddingTop: insets.top + t.spacing.sm, paddingHorizontal: t.spacing.xl, paddingBottom: t.spacing.sm, flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
@@ -82,7 +82,7 @@ export default function Chat() {
           <Image source={them.photo} style={{ width: 40, height: 40, borderRadius: 40 }} contentFit="cover" />
           <View style={{ flex: 1 }}>
             <Text variant="title">{them.name}</Text>
-            <Text variant="caption" color="success">Aligned · {them.city}</Text>
+            <Text variant="caption" color="success">● Aligned · {them.city}</Text>
           </View>
         </View>
 
@@ -92,9 +92,9 @@ export default function Chat() {
           contentContainerStyle={{ paddingHorizontal: t.spacing.xl, paddingTop: t.spacing.md, paddingBottom: t.spacing.md }}>
           {/* Featured soul probe at the top of a new thread */}
           {messages.length === 0 && (
-            <GlassCard glow style={{ marginBottom: t.spacing.lg }}>
+            <GlassCard gold style={{ marginBottom: t.spacing.lg }}>
               <View style={{ alignItems: 'center' }}>
-                <Text variant="overline" color="accent" uppercase>Soul probe</Text>
+                <Text variant="overline" color="highlight" uppercase>Soul probe</Text>
                 <Text variant="headline" center style={{ marginTop: t.spacing.sm, fontFamily: t.fontFamily.displayItalic }}>
                   “{PROBES[0]}”
                 </Text>
@@ -129,7 +129,7 @@ export default function Chat() {
             </Pressable>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-            <View style={{ flex: 1, backgroundColor: t.colors.bgElevated, borderRadius: t.radii.pill, borderWidth: 1, borderColor: t.colors.border, paddingHorizontal: t.spacing.lg, minHeight: 50, justifyContent: 'center' }}>
+            <View style={{ flex: 1, backgroundColor: t.colors.glass, borderRadius: t.radii.pill, borderWidth: 1, borderColor: t.colors.border, paddingHorizontal: t.spacing.lg, minHeight: 50, justifyContent: 'center' }}>
               <TextInput
                 value={draft}
                 onChangeText={setDraft}
@@ -147,7 +147,7 @@ export default function Chat() {
           </View>
         </View>
       </KeyboardAvoidingView>
-    </CinematicBackground>
+    </SkyBackground>
   );
 }
 

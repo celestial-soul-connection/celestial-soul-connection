@@ -92,11 +92,25 @@ export default function BirthPortal() {
   return (
     <ScreenFrame>
       <Chip label="Step 1 · The Birth Portal" tone="accent" />
-      <Text variant="displayLg" style={{ marginTop: t.spacing.lg }}>Your cosmic coordinates</Text>
+      <Text variant="displayLg" style={{ marginTop: t.spacing.lg }}>Where the sky met your first breath</Text>
       <Text variant="body" color="textMuted" style={{ marginTop: t.spacing.sm }}>
-        Your birth moment maps your celestial story. The more precise the time, the
-        truer the reading.
+        Your birth moment maps your Star Sync. The more precise the time, the truer the
+        reading.
       </Text>
+
+      {/* Trust reassurance — shown right where we ask for sensitive data (vision §4.3) */}
+      <Card style={{ marginTop: t.spacing.lg }}>
+        <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
+          <Text variant="title" color="highlight" style={{ width: 22, textAlign: 'center' }}>☾</Text>
+          <View style={{ flex: 1 }}>
+            <Text variant="label">Private by design</Text>
+            <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
+              Your birth details are encrypted and used only to compute your readings — never
+              shown to other people, never sold. You can export or delete everything anytime.
+            </Text>
+          </View>
+        </View>
+      </Card>
 
       {/* Gender + who you'd like to meet */}
       <Card style={{ marginTop: t.spacing.xl }}>

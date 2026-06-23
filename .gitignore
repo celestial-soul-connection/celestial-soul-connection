@@ -19,3 +19,6 @@ apps/mobile/assets/fonts/*.ttf
 .DS_Store
 .idea/
 .vscode/
+
+# Local dev scratch (QR codes, throwaway previews)
+preview/

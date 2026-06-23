@@ -88,8 +88,8 @@ function PlanCard({ t, plan, selected, onPress }: { t: ReturnType<typeof useThem
       style={{
         borderRadius: t.radii.xl, padding: t.spacing.xl,
         borderWidth: selected ? 2 : 1,
-        borderColor: selected ? t.colors.primary : t.colors.border,
-        backgroundColor: selected ? t.colors.primarySoft : t.colors.bgElevated,
+        borderColor: selected ? t.colors.highlight : t.colors.border,
+        backgroundColor: selected ? t.colors.primarySoft : t.colors.glass,
       }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <View style={{ flex: 1, paddingRight: t.spacing.md }}>
@@ -97,14 +97,14 @@ function PlanCard({ t, plan, selected, onPress }: { t: ReturnType<typeof useThem
           <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>{plan.tagline}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text variant="displayLg" color={selected ? 'primary' : 'text'}>₹{plan.price}</Text>
+          <Text variant="displayLg" color={selected ? 'highlight' : 'text'}>₹{plan.price}</Text>
           <Text variant="caption" color="textFaint">per week</Text>
         </View>
       </View>
       <View style={{ marginTop: t.spacing.lg, gap: t.spacing.sm }}>
         {plan.perks.map((perk) => (
           <View key={perk} style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.sm }}>
-            <Text variant="label" color={selected ? 'primary' : 'accent'}>✓</Text>
+            <Text variant="label" color={selected ? 'highlight' : 'accent'}>✓</Text>
             <Text variant="body" color="textMuted" style={{ flex: 1 }}>{perk}</Text>
           </View>
         ))}

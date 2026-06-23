@@ -81,7 +81,7 @@ export default function Report() {
               <Text variant="displayLg" color="textOnImage" onImage style={{ marginTop: 4 }}>You & {m.profile.name}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.sm }}>
                 <View style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
-                  <Text variant="label" color="textOnImage" onImage>{astro ? 'Psych + Astro' : 'Psychology-led'}</Text>
+                  <Text variant="label" color="textOnImage" onImage>{astro ? 'Soul Print + Star Sync' : 'Soul Print–led'}</Text>
                 </View>
                 {serious && (
                   <View style={{ backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
@@ -90,7 +90,7 @@ export default function Report() {
                 )}
               </View>
             </View>
-            <CompatibilityRing score={f.score} size={96} />
+            <CompatibilityRing score={f.score} size={96} variant="soul" />
           </View>
         </View>
 
@@ -104,7 +104,7 @@ export default function Report() {
 
         {/* Psychology breakdown */}
         <Reveal index={2}>
-          <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.md }}>Psychological fit · {f.psych.score}%</Text>
+          <Text variant="title" style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.md }}>Soul Print · who you are · {f.psych.score}%</Text>
           <GlassCard>
             {f.psych.dims.map((d) => (
               <View key={d.key} style={{ marginBottom: t.spacing.md }}>
@@ -122,7 +122,7 @@ export default function Report() {
         {astro && (
           <Reveal index={3}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: t.spacing['2xl'], marginBottom: t.spacing.md }}>
-              <Text variant="title">Astrological fit · {astro.compositePct}%</Text>
+              <Text variant="title">Star Sync · your skies · {astro.compositePct}%</Text>
               {astro.estimated && <Chip label="estimated" tone="neutral" />}
             </View>
             <GlassCard>
