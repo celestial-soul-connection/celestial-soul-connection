@@ -4,3 +4,7 @@
 
 expo-env.d.ts
 # @end expo-cli
+# Android signing secrets — NEVER commit
+android/app/upload.keystore
+android/keystore-credentials.txt
+android/keystore.properties
