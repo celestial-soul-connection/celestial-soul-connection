@@ -13,11 +13,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.csc.app",
+      "bundleIdentifier": "com.celestialsoul.app",
       "buildNumber": "1"
     },
     "android": {
-      "package": "com.csc.app",
+      "package": "com.celestialsoul.app",
       "versionCode": 5,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
