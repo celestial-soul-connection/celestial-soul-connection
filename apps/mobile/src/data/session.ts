@@ -1,90 +1,97 @@
 /**
- * session.ts — auth + onboarding gate.
+ * session.ts — auth + onboarding gate, backed by SUPABASE AUTH.
  *
- * First-party auth now goes through our FastAPI backend (authApi: email + phone +
- * password, bcrypt-hashed server-side, JWT in expo-secure-store). If the backend
- * is unreachable in dev, signup/login fall back to a local session so onboarding
- * still flows. The legacy phone-OTP stub is kept for the existing OTP screen.
- * Tracks whether onboarding (the questionnaire) is done so routing can gate it.
+ * Email/password, Google (via id-token), and phone-OTP all go through Supabase;
+ * the session (JWT + refresh) is managed by the supabase client. We keep the same
+ * exported functions + `Session` shape so screens are unchanged. `onboarded` is
+ * tracked in the user's metadata; the `handle_new_user` DB trigger creates the
+ * profile row + logs account_core consent on signup.
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 import { Session } from './types';
-import { signup as apiSignup, login as apiLogin, clearToken, AuthError } from './authApi';
+import { AuthError } from './authApi';
+import { GoogleCredential } from './googleAuth';
 
-const SESSION_KEY = '@csc/session';
+function fail(message: string): never {
+  throw new AuthError(message);
+}
+
+function toSession(user: User): Session {
+  const provider = user.app_metadata?.provider;
+  return {
+    userId: user.id,
+    email: user.email ?? undefined,
+    phone: user.phone ?? '',
+    onboarded: !!user.user_metadata?.onboarded,
+    provider: provider === 'email' ? 'password' : (provider as Session['provider']),
+    createdAt: user.created_at ? Date.parse(user.created_at) : Date.now(),
+  };
+}
 
 export async function getSession(): Promise<Session | null> {
-  try {
-    const v = await AsyncStorage.getItem(SESSION_KEY);
-    return v ? (JSON.parse(v) as Session) : null;
-  } catch {
-    return null;
-  }
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user ? toSession(data.session.user) : null;
 }
 
-/** Stub: pretend to send an OTP. Always "succeeds". */
+/** Email + password signup. Phone & DOB are kept in metadata; the 18+ birth data
+ *  is collected/encrypted in onboarding. (Disable "Confirm email" in the Supabase
+ *  dashboard for a friction-free dev flow.) */
+export async function signUpWithPassword(input: { email: string; phone: string; password: string; dob: string }): Promise<Session> {
+  const { data, error } = await supabase.auth.signUp({
+    email: input.email,
+    password: input.password,
+    options: { data: { phone: input.phone, dob: input.dob, onboarded: false } },
+  });
+  if (error) fail(error.message);
+  const user = data.session?.user ?? data.user;
+  if (!user) fail('Account created — confirm your email to continue.');
+  return toSession(user);
+}
+
+/** Login by email (or phone if no "@"). */
+export async function logInWithPassword(identifier: string, password: string): Promise<Session> {
+  const id = identifier.trim();
+  const creds = id.includes('@') ? { email: id, password } : { phone: id.replace(/[^\d+]/g, ''), password };
+  const { data, error } = await supabase.auth.signInWithPassword(creds as any);
+  if (error) fail(error.message);
+  if (!data.user) fail('Could not sign you in.');
+  return toSession(data.user);
+}
+
+/** Google: exchange the id-token from the native Google flow for a Supabase
+ *  session. Requires the Google provider enabled in the Supabase dashboard. */
+export async function signInWithGoogle(cred: GoogleCredential): Promise<Session> {
+  if (!cred.idToken) fail('Google did not return an ID token. Try again.');
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: cred.idToken,
+    access_token: cred.accessToken,
+  });
+  if (error) fail(error.message);
+  if (!data.user) fail('Google sign-in failed.');
+  return toSession(data.user);
+}
+
+/** Phone OTP — request the SMS code. */
 export async function requestOtp(phone: string): Promise<{ ok: boolean }> {
-  // Real impl: call provider (Twilio/Firebase). Here we just accept.
-  return { ok: phone.replace(/\D/g, '').length >= 7 };
+  const { error } = await supabase.auth.signInWithOtp({ phone: phone.replace(/[^\d+]/g, '') });
+  if (error) fail(error.message);
+  return { ok: true };
 }
 
-/** Stub: accept any non-empty OTP and create/restore a session. */
+/** Phone OTP — verify the SMS code and create the session. */
 export async function verifyOtp(phone: string, otp: string): Promise<Session> {
-  if (otp.replace(/\D/g, '').length < 4) throw new Error('Enter the code we sent.');
-  const existing = await getSession();
-  const session: Session =
-    existing && existing.phone === phone
-      ? existing
-      : { phone, userId: 'u_' + phone.replace(/\D/g, ''), onboarded: false, createdAt: Date.now() };
-  await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  return session;
+  const { data, error } = await supabase.auth.verifyOtp({ phone: phone.replace(/[^\d+]/g, ''), token: otp, type: 'sms' });
+  if (error) fail(error.message);
+  if (!data.user) fail('That code did not verify.');
+  return toSession(data.user);
 }
 
 export async function markOnboarded(): Promise<void> {
-  const s = await getSession();
-  if (s) await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, onboarded: true }));
+  await supabase.auth.updateUser({ data: { onboarded: true } });
 }
 
 export async function signOut(): Promise<void> {
-  await AsyncStorage.removeItem(SESSION_KEY);
-  await clearToken();
-}
-
-async function persist(session: Session): Promise<Session> {
-  await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  return session;
-}
-
-/**
- * First-party signup. Hits the backend; on success the JWT is stored securely by
- * authApi and we keep a local Session for routing. If the server is unreachable
- * (dev), fall back to a local-only session so the flow never dead-ends. A real
- * rejection (duplicate email, weak password, underage) re-throws for the UI.
- */
-export async function signUpWithPassword(input: { email: string; phone: string; password: string; dob: string }): Promise<Session> {
-  try {
-    const res = await apiSignup(input);
-    return persist({ phone: input.phone, userId: res.userId, onboarded: false, createdAt: Date.now() });
-  } catch (e) {
-    if (e instanceof AuthError && e.offline) {
-      return persist({ phone: input.phone, userId: 'local_' + Date.now(), onboarded: false, createdAt: Date.now() });
-    }
-    throw e;
-  }
-}
-
-/** First-party login by email OR phone. Same offline fallback as signup. */
-export async function logInWithPassword(identifier: string, password: string): Promise<Session> {
-  try {
-    const res = await apiLogin(identifier, password);
-    const existing = await getSession();
-    return persist(existing ?? { phone: identifier, userId: res.userId, onboarded: false, createdAt: Date.now() });
-  } catch (e) {
-    if (e instanceof AuthError && e.offline) {
-      const existing = await getSession();
-      if (existing) return existing;
-      return persist({ phone: identifier, userId: 'local_' + Date.now(), onboarded: false, createdAt: Date.now() });
-    }
-    throw e;
-  }
+  await supabase.auth.signOut();
 }

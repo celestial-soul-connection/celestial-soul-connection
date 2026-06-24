@@ -14,6 +14,7 @@ import { Profile, MatchResult, PsychProfile, Message, BirthData } from './types'
 import { SEED_PROFILES } from './seedProfiles';
 import { rankCandidates, Me } from './matching';
 import { BILLING_KEYS, recordContactCharge } from './billing';
+import { SLOT_KEYS, getActiveConnectionIds } from './slots';
 import { clearToken } from './authApi';
 
 const PASSED_KEY = '@csc/passed';
@@ -89,6 +90,7 @@ export async function setMyProfile(v: MyProfileFields): Promise<void> {
 
 const MEGENDER_KEY = '@csc/me_gender';
 const MESEEKING_KEY = '@csc/me_seeking';
+const MECOMPAT_KEY = '@csc/me_compat_mode';
 const UNLOCK_KEY = '@csc/contact_unlocks';   // matchId[] whose contact is unlocked
 const UNLOCK_LOG_KEY = '@csc/contact_unlock_log';
 export async function getMyGender(): Promise<import('./types').Gender | undefined> {
@@ -104,7 +106,17 @@ export async function setMySeeking(s: import('./types').SeekingPref): Promise<vo
   await AsyncStorage.setItem(MESEEKING_KEY, JSON.stringify(s));
 }
 
+export async function getMyCompatMode(): Promise<import('./types').CompatibilityMode> {
+  const { DEFAULT_COMPAT_MODE } = await import('./types');
+  return getJSON<import('./types').CompatibilityMode>(MECOMPAT_KEY, DEFAULT_COMPAT_MODE);
+}
+export async function setMyCompatMode(m: import('./types').CompatibilityMode): Promise<void> {
+  await AsyncStorage.setItem(MECOMPAT_KEY, JSON.stringify(m));
+}
+
 const MEMARITAL_KEY = '@csc/me_marital';
+const MEIDVERIFIED_KEY = '@csc/me_id_verified';        // boolean: ID/KYC verification STATUS only
+const KYC_CONSENT_LOG_KEY = '@csc/kyc_consent_log';    // append-only consent audit for kyc_verification
 export async function getMyMaritalStatus(): Promise<import('./types').MaritalStatus | undefined> {
   return getJSON<import('./types').MaritalStatus | undefined>(MEMARITAL_KEY, undefined);
 }
@@ -116,6 +128,7 @@ async function buildMe(): Promise<Me> {
   return {
     psych: await getMyPsych(), birth: await getMyBirth(), age: await getMyAge(),
     interests: await getMyInterests(), gender: await getMyGender(), seeking: await getMySeeking(),
+    compatMode: await getMyCompatMode(),
   };
 }
 
@@ -129,15 +142,36 @@ export async function getDeck(withAstro = false): Promise<MatchResult[]> {
   const passed = await getJSON<string[]>(PASSED_KEY, []);
   const liked = await getJSON<string[]>(LIKED_KEY, []);
   const reported = await getJSON<string[]>(REPORTED_KEY, []);
-  const seen = new Set([...passed, ...liked, ...reported]);
+  // I5: never surface a past pair (declined connections/candidates) again.
+  const past = await getJSON<string[]>('@csc/past_pairings', []);
+  const seen = new Set([...passed, ...liked, ...reported, ...past]);
   const pool = SEED_PROFILES.filter((p) => !seen.has(p.id));
   return rankCandidates(me, pool, { withAstro });
 }
 
-/** Profiles the user has liked → the "Matches" list. */
+/** Profiles in an active connection (slots model) → the "Matches" list. */
 export async function getLikedProfiles(): Promise<Profile[]> {
+  const ids = await getActiveConnectionIds();
+  // Fall back to legacy liked ids so existing data still shows during migration.
   const liked = await getJSON<string[]>(LIKED_KEY, []);
-  return SEED_PROFILES.filter((p) => liked.includes(p.id));
+  const set = new Set([...ids, ...liked]);
+  return SEED_PROFILES.filter((p) => set.has(p.id));
+}
+
+/**
+ * Resonance — souls who have resonated with you (inbound interest). Premium users
+ * see who; free users see a blurred count + upsell. Modelled here from the seed
+ * pool (deterministic), excluding people you've already passed, liked, or who are
+ * active connections — so it reads as a genuine "they liked you first" queue.
+ * Server-side this becomes a real inbound-likes query; the screen never changes.
+ */
+export async function getResonance(): Promise<Profile[]> {
+  const passed = await getJSON<string[]>(PASSED_KEY, []);
+  const liked = await getJSON<string[]>(LIKED_KEY, []);
+  const active = await getActiveConnectionIds();
+  const excluded = new Set([...passed, ...liked, ...active]);
+  // Deterministic subset: every other eligible seed profile "resonated" with you.
+  return SEED_PROFILES.filter((p) => !excluded.has(p.id)).filter((_, i) => i % 2 === 0);
 }
 
 /** Used by the report screen for a single pair (eager astro fusion). */
@@ -167,9 +201,9 @@ export async function reportProfile(id: string, reason: string): Promise<void> {
   if (!ids.includes(id)) await AsyncStorage.setItem(REPORTED_KEY, JSON.stringify([...ids, id]));
 }
 
-/** Reset the deck (handy for demoing). */
+/** Reset the deck + slots (handy for demoing): clears past pairs, slots, delivery ledger. */
 export async function resetDeck(): Promise<void> {
-  await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY, REPORTED_KEY]);
+  await AsyncStorage.multiRemove([PASSED_KEY, LIKED_KEY, REPORTED_KEY, ...SLOT_KEYS]);
 }
 
 /* ----- data rights (DPDP 2023 / GDPR / CCPA) ----- */
@@ -177,9 +211,10 @@ export async function resetDeck(): Promise<void> {
 /** All AsyncStorage keys this app owns — single source for export/delete. */
 const ALL_KEYS = [
   MEPSYCH_KEY, MEBIRTH_KEY, MEAGE_KEY, MEINTERESTS_KEY, MEINTENTIONS_KEY, MEPROFILE_KEY,
-  MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY,
+  MEGENDER_KEY, MESEEKING_KEY, MEMARITAL_KEY, MECOMPAT_KEY,
+  MEIDVERIFIED_KEY, KYC_CONSENT_LOG_KEY,
   PASSED_KEY, LIKED_KEY, REPORTED_KEY, REPORTED_KEY + '_log', MSGS_KEY,
-  UNLOCK_KEY, UNLOCK_LOG_KEY, ...BILLING_KEYS,
+  UNLOCK_KEY, UNLOCK_LOG_KEY, ...BILLING_KEYS, ...SLOT_KEYS,
 ];
 
 /**
@@ -211,6 +246,26 @@ export async function deleteMyAccount(): Promise<void> {
   await clearToken();
 }
 
+/* ----- identity (KYC) verification — STATUS ONLY, never the document -----
+ * Privacy: we store a boolean verification status, never the Aadhaar/PAN/doc
+ * itself (that stays with the DigiLocker/KYC provider). Capturing kyc_verification
+ * consent writes an append-only audit entry. Other users only ever see "verified".
+ */
+export async function isIdVerified(): Promise<boolean> {
+  return getJSON<boolean>(MEIDVERIFIED_KEY, false);
+}
+
+/**
+ * Record explicit kyc_verification consent (append-only) and mark the user
+ * verified. `method` notes the provider used (e.g. 'digilocker'). In production
+ * the provider returns only a pass/fail + reference; we persist the boolean.
+ */
+export async function completeIdVerification(method: string): Promise<void> {
+  const log = await getJSON<{ purpose: 'kyc_verification'; method: string; ts: number }[]>(KYC_CONSENT_LOG_KEY, []);
+  await AsyncStorage.setItem(KYC_CONSENT_LOG_KEY, JSON.stringify([...log, { purpose: 'kyc_verification', method, ts: Date.now() }]));
+  await AsyncStorage.setItem(MEIDVERIFIED_KEY, JSON.stringify(true));
+}
+
 /* ----- contact unlock (mutual match → tier-based fee → logged consent) ----- */
 
 export async function isContactUnlocked(matchId: string): Promise<boolean> {
@@ -237,6 +292,23 @@ export async function unlockContact(matchId: string, fee: number): Promise<void>
 export async function getMessages(matchId: string): Promise<Message[]> {
   const all = await getJSON<Record<string, Message[]>>(MSGS_KEY, {});
   return all[matchId] ?? [];
+}
+
+/**
+ * Conversations for the Messages tab: each active connection with its last
+ * message preview + timestamp, newest first. A connection with no messages yet
+ * shows as "start the conversation" so chat is always one tap away.
+ */
+export interface Conversation { profile: Profile; lastText: string | null; lastTs: number | null; started: boolean }
+export async function getConversations(): Promise<Conversation[]> {
+  const profiles = await getLikedProfiles();
+  const all = await getJSON<Record<string, Message[]>>(MSGS_KEY, {});
+  const convos = profiles.map((profile) => {
+    const msgs = all[profile.id] ?? [];
+    const last = msgs[msgs.length - 1];
+    return { profile, lastText: last?.text ?? null, lastTs: last?.ts ?? null, started: msgs.length > 0 };
+  });
+  return convos.sort((a, b) => (b.lastTs ?? 0) - (a.lastTs ?? 0));
 }
 
 export async function addMessage(m: Message): Promise<void> {

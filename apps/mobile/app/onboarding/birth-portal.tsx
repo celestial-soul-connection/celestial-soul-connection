@@ -15,8 +15,10 @@ import { Toggle } from '../../src/components/Toggle';
 import { DateTimeField } from '../../src/components/fx/DateTimeField';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { searchPlaces, Place } from '../../src/data/placeSearch';
-import { MARITAL_OPTIONS, MaritalStatus } from '../../src/data/types';
-import { setMyBirth, setMyAge, setMyGender, setMySeeking, setMyMaritalStatus } from '../../src/data/store';
+import { MARITAL_OPTIONS, MaritalStatus, CompatibilityMode, DEFAULT_COMPAT_MODE } from '../../src/data/types';
+import { CompatModeChooser } from '../../src/components/CompatModeChooser';
+import { setMyBirth, setMyAge, setMyGender, setMySeeking, setMyMaritalStatus, setMyCompatMode } from '../../src/data/store';
+import { saveProfileToSupabase, saveBirthToSupabase } from '../../src/data/supabaseStore';
 
 type Consent = { key: string; label: string; help: string; required?: boolean; default?: boolean };
 const CONSENTS: Consent[] = [
@@ -46,6 +48,7 @@ export default function BirthPortal() {
   const [gender, setGender] = useState<'woman' | 'man' | 'nonbinary' | null>(null);
   const [seeking, setSeeking] = useState<'women' | 'men' | 'everyone' | null>(null);
   const [marital, setMarital] = useState<MaritalStatus | null>(null);
+  const [compatMode, setCompatMode] = useState<CompatibilityMode>(DEFAULT_COMPAT_MODE);
   const [date, setDate] = useState('');     // YYYY-MM-DD
   const [time, setTime] = useState('');     // HH:MM
   const [placeQuery, setPlaceQuery] = useState('');
@@ -76,24 +79,53 @@ export default function BirthPortal() {
   const consentOk = CONSENTS.filter((c) => c.required).every((c) => consent[c.key]);
   const canContinue = !!gender && !!seeking && !!marital && validDate && validTime && !!place && consentOk;
 
+  // Make the gate transparent — tell the user exactly what's still needed.
+  const missing = [
+    !gender && 'I am a…',
+    !seeking && 'Show me…',
+    !marital && 'marital status',
+    !validDate && 'date of birth',
+    !validTime && 'time of birth',
+    !place && 'place of birth (tap a result)',
+    !consentOk && 'required consents',
+  ].filter(Boolean) as string[];
+
   const submit = async () => {
     if (!place || !gender || !seeking || !marital) return;
     await setMyGender(gender);
     await setMySeeking(seeking);
     await setMyMaritalStatus(marital);
+    await setMyCompatMode(compatMode);
     await setMyBirth({ date, time, latitude: place.latitude, longitude: place.longitude, timezone: place.timezone, place: place.place });
     await setMyAge(ageFromDate(date));
+    // Also persist to Supabase (owner-scoped). Best-effort; never blocks the flow.
+    await saveProfileToSupabase({ gender, seeking, marital, city: place.place });
+    await saveBirthToSupabase({ date, time, place: place.place });
     router.replace('/onboarding/questionnaire');
   };
 
   return (
     <ScreenFrame>
       <Chip label="Step 1 · The Birth Portal" tone="accent" />
-      <Text variant="displayLg" style={{ marginTop: t.spacing.lg }}>Your cosmic coordinates</Text>
+      <Text variant="displayLg" style={{ marginTop: t.spacing.lg }}>Where the sky met your first breath</Text>
       <Text variant="body" color="textMuted" style={{ marginTop: t.spacing.sm }}>
-        Your birth moment maps your celestial story. The more precise the time, the
-        truer the reading.
+        Your birth moment maps your Star Sync. The more precise the time, the truer the
+        reading.
       </Text>
+
+      {/* Trust reassurance — shown right where we ask for sensitive data (vision §4.3) */}
+      <Card style={{ marginTop: t.spacing.lg }}>
+        <View style={{ flexDirection: 'row', gap: t.spacing.md }}>
+          <Text variant="title" color="highlight" style={{ width: 22, textAlign: 'center' }}>☾</Text>
+          <View style={{ flex: 1 }}>
+            <Text variant="label">Private by design</Text>
+            <Text variant="caption" color="textMuted" style={{ marginTop: 2 }}>
+              Your birth details are encrypted and used only to compute your readings — never
+              shown to other people, never sold. You can export or delete everything anytime.
+            </Text>
+          </View>
+        </View>
+      </Card>
 
       {/* Gender + who you'd like to meet */}
       <Card style={{ marginTop: t.spacing.xl }}>
@@ -128,7 +160,17 @@ export default function BirthPortal() {
         <DateTimeField mode="time" label="Time of birth" value={time} onChange={(c) => setTime(c)} />
         <Divider t={t} />
         <Labeled t={t} label="Place of birth">
-          <TextInput value={place ? place.place : placeQuery} onChangeText={onPlaceChange} placeholder="Start typing a city…" placeholderTextColor={t.colors.textFaint} style={inputStyle(t)} />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TextInput value={place ? place.place : placeQuery} onChangeText={onPlaceChange} placeholder="Start typing a city…" placeholderTextColor={t.colors.textFaint} style={[inputStyle(t), { flex: 1 }]} />
+            {(place || placeQuery.length > 0) && (
+              <Pressable
+                onPress={() => { if (debounce.current) clearTimeout(debounce.current); setPlace(null); setPlaceQuery(''); setResults([]); setSearching(false); }}
+                hitSlop={12}
+                style={{ paddingHorizontal: t.spacing.sm }}>
+                <Text variant="title" color="textMuted">✕</Text>
+              </Pressable>
+            )}
+          </View>
           {searching && <ActivityIndicator color={t.colors.primary} style={{ marginTop: t.spacing.sm, alignSelf: 'flex-start' }} />}
           {!place && results.map((r) => (
             <Pressable key={r.place + r.latitude} onPress={() => { setPlace(r); setResults([]); }} style={{ paddingVertical: t.spacing.sm, borderTopWidth: 1, borderTopColor: t.colors.border }}>
@@ -138,6 +180,12 @@ export default function BirthPortal() {
           ))}
           {place && <Chip label={`✓ ${place.timezone}`} tone="success" style={{ marginTop: t.spacing.sm }} />}
         </Labeled>
+      </Card>
+
+      {/* How compatibility is computed — a first-class choice that maps people by lens */}
+      <Card style={{ marginTop: t.spacing.md }}>
+        <Text variant="overline" color="textFaint" uppercase style={{ marginBottom: t.spacing.sm }}>How should we match you</Text>
+        <CompatModeChooser value={compatMode} onChange={setCompatMode} />
       </Card>
 
       <Text variant="overline" color="textFaint" uppercase style={{ marginTop: t.spacing['2xl'], marginBottom: t.spacing.sm }}>
@@ -162,6 +210,11 @@ export default function BirthPortal() {
       </Text>
 
       <Button label="Create my soul blueprint" disabled={!canContinue} onPress={submit} />
+      {!canContinue && (
+        <Text variant="caption" color="textMuted" center style={{ marginTop: t.spacing.sm }}>
+          Still needed: {missing.join(' · ')}
+        </Text>
+      )}
     </ScreenFrame>
   );
 }

@@ -11,9 +11,11 @@ import { CinematicBackground } from '../../src/components/fx/CinematicBackground
 import { Reveal } from '../../src/components/fx/Reveal';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
+import { GoogleSignInButton, OrDivider } from '../../src/components/auth/GoogleSignInButton';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { logInWithPassword } from '../../src/data/session';
 import { AuthError } from '../../src/data/authApi';
+import { Session } from '../../src/data/types';
 import { haptic } from '../../src/lib/haptics';
 
 export default function LogIn() {
@@ -29,12 +31,15 @@ export default function LogIn() {
 
   const canSubmit = identifier.trim().length >= 3 && password.length >= 1 && !loading;
 
+  const goAfterAuth = (s: Session) =>
+    router.replace(s.onboarded ? '/(tabs)/today' : '/onboarding/birth-portal');
+
   const submit = async () => {
     setLoading(true); setError(null);
     try {
       const s = await logInWithPassword(identifier.trim(), password);
       haptic.success();
-      router.replace(s.onboarded ? '/(tabs)/discover' : '/onboarding/birth-portal');
+      goAfterAuth(s);
     } catch (e) {
       haptic.error();
       setError(e instanceof AuthError ? e.message : 'Could not log you in. Try again.');
@@ -93,9 +98,11 @@ export default function LogIn() {
             )}
           </View>
 
-          <Reveal index={4}>
+          <Reveal index={4} style={{ gap: t.spacing.lg }}>
             <Button label="Log in" disabled={!canSubmit} loading={loading} onPress={submit} />
-            <Pressable onPress={() => router.replace('/auth/signup')} style={{ alignSelf: 'center', paddingVertical: t.spacing.md }}>
+            <OrDivider />
+            <GoogleSignInButton onSession={goAfterAuth} onError={setError} />
+            <Pressable onPress={() => router.replace('/auth/signup')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
               <Text variant="label" color="textMuted">New here? <Text variant="label" color="primary">Create an account</Text></Text>
             </Pressable>
           </Reveal>

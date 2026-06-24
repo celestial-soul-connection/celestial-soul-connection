@@ -15,7 +15,18 @@ export function astroScoreOf(astro: AstroResult): number {
   return Math.round(0.7 * astro.compositePct + 0.3 * ak);
 }
 
-export function fuseScores(psych: Breakdown, astro: AstroResult | null): FusedResult {
+/**
+ * Fuse psychology + astrology. `weights` defaults to the config blend, but the
+ * caller passes the user's CHOSEN compatibility mode weights (see
+ * weightsForMode) so the score reflects what they opted into. When astro is
+ * unavailable we always fall back to psychology so the deck never breaks — even
+ * in 'astrological' mode (flagged via astroAvailable so copy stays honest).
+ */
+export function fuseScores(
+  psych: Breakdown,
+  astro: AstroResult | null,
+  weights: { psych: number; astro: number } = FUSION_WEIGHTS,
+): FusedResult {
   if (!astro) {
     return {
       score: psych.score,
@@ -28,7 +39,9 @@ export function fuseScores(psych: Breakdown, astro: AstroResult | null): FusedRe
   }
 
   const aScore = astroScoreOf(astro);
-  const w = FUSION_WEIGHTS;
+  // Normalize in case a caller passes weights that don't sum to 1.
+  const sum = weights.psych + weights.astro || 1;
+  const w = { psych: weights.psych / sum, astro: weights.astro / sum };
   const score = Math.round(w.psych * psych.score + w.astro * aScore);
 
   const gap = Math.abs(psych.score - aScore);

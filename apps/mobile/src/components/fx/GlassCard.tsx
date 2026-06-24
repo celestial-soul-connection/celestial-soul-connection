@@ -12,35 +12,38 @@ import { useTheme } from '../../theme/ThemeProvider';
 interface Props {
   children: React.ReactNode;
   glow?: boolean;
+  /** Tint the glow/border with `highlight` (gold) — for the "chosen" / sacred card. */
+  gold?: boolean;
   padded?: boolean;
   radius?: number;
   style?: ViewStyle;
 }
 
-export function GlassCard({ children, glow, padded = true, radius, style }: Props) {
+export function GlassCard({ children, glow, gold, padded = true, radius, style }: Props) {
   const t = useTheme();
   const r = radius ?? t.radii.xl;
   const tint = t.mode === 'dark' ? 'dark' : 'light';
+  const edge = gold ? t.colors.highlight : glow ? t.colors.primary : '#000';
 
   return (
     <View
       style={[
         {
           borderRadius: r,
-          shadowColor: glow ? t.colors.primary : '#000',
+          shadowColor: edge,
           shadowOffset: { width: 0, height: 12 },
-          shadowRadius: glow ? t.feel.glow.radius : 18,
-          shadowOpacity: glow ? t.feel.glow.opacity : t.mode === 'dark' ? 0.4 : 0.12,
-          elevation: glow ? 12 : 6,
+          shadowRadius: glow || gold ? t.feel.glow.radius : 18,
+          shadowOpacity: glow || gold ? t.feel.glow.opacity : t.mode === 'dark' ? 0.4 : 0.12,
+          elevation: glow || gold ? 12 : 6,
         },
         style,
       ]}>
       <BlurView intensity={t.feel.glass.intensity} tint={tint} style={{ borderRadius: r, overflow: 'hidden' }}>
         <View
           style={{
-            backgroundColor: hexToRgba(t.colors.bgElevated, t.feel.glass.tintOpacity),
+            backgroundColor: t.colors.glass,
             borderWidth: 1,
-            borderColor: hexToRgba(t.mode === 'dark' ? '#FFFFFF' : t.colors.primary, t.feel.glass.borderOpacity),
+            borderColor: gold ? t.colors.highlight : t.colors.border,
             borderRadius: r,
             padding: padded ? t.spacing.xl : 0,
           }}>

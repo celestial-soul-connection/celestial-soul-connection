@@ -1,10 +1,12 @@
 /**
- * Daily Match — a real swipe DECK (the signature dating interaction).
+ * Your Connection(s) — slot-gated delivery, NOT an endless deck.
  *
- * Loads genuinely ranked matches from the store (real scoring vs seed profiles),
- * shows a stack of cards with the next one peeking behind, and lets you swipe:
- * right = align (→ celebration if it's a strong match), left = pass. Each swipe
- * persists, so the deck advances and remembers. Free tier gates to 5/day.
+ * Enforced scarcity (PRD/Technical-design): a man has 1 slot, a woman 2. We
+ * surface ONE curated candidate into an open slot at a time, capped at 2 new
+ * deliveries / rolling 7 days. Opt-in (♥) opens a connection into that slot;
+ * decline (✕) frees the slot and the pair is never re-suggested — the structural
+ * cost that forces a genuine choice instead of endless scrolling. There is no
+ * infinite stack to swipe through.
  *
  * Fully works in Expo Go (Gesture Handler + Reanimated + Moti).
  */
@@ -15,21 +17,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { CinematicBackground } from '../../src/components/fx/CinematicBackground';
+import { SkyBackground } from '../../src/components/fx/SkyBackground';
+import { SoulMerge } from '../../src/components/fx/SoulMerge';
 import { SwipeCard } from '../../src/components/fx/SwipeCard';
-import { GlassCard } from '../../src/components/fx/GlassCard';
 import { Text } from '../../src/components/Text';
 import { Button } from '../../src/components/Button';
 import { Chip } from '../../src/components/Chip';
 import { CompatibilityRing } from '../../src/components/CompatibilityRing';
 import { useTheme } from '../../src/theme/ThemeProvider';
-import { getDeck, passProfile, likeProfile, resetDeck, getMyBirth } from '../../src/data/store';
-import { getEntitlement } from '../../src/data/billing';
+import { getDeck, getMyBirth, getMyCompatMode, getMyGender } from '../../src/data/store';
 import { hydrateAstro } from '../../src/data/matching';
-import { MatchResult, maritalLabel } from '../../src/data/types';
+import {
+  getSlotsView, deliverCandidate, optInCandidate, declineSlot, SlotsView,
+} from '../../src/data/slots';
+import { MatchResult, maritalLabel, Gender } from '../../src/data/types';
 import { haptic } from '../../src/lib/haptics';
-
-const DAILY_LIMIT = 5;
 
 export default function DailyMatch() {
   const t = useTheme();
@@ -37,132 +39,202 @@ export default function DailyMatch() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
 
-  const [deck, setDeck] = useState<MatchResult[] | null>(null);
-  const [index, setIndex] = useState(0);
-  const [viewedToday, setViewedToday] = useState(0);
-  const [isPremium, setIsPremium] = useState(true); // assume premium until known (no flash of paywall)
+  const [view, setView] = useState<SlotsView | null>(null);
+  const [gender, setGender] = useState<Gender | undefined>();
+  // The candidate currently surfaced into an open slot (one at a time).
+  const [candidate, setCandidate] = useState<MatchResult | null>(null);
+  // The daily ritual: a calm "your soul has arrived" moment before the card is
+  // shown, so the introduction feels chosen rather than dealt. Keyed by candidate
+  // id so a freshly delivered soul always gets its reveal moment.
+  const [revealedId, setRevealedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const d = await getDeck();
-    setDeck(d);
-    setIndex(0);
-    setIsPremium((await getEntitlement()).isPremium);
+    const g = await getMyGender();
+    setGender(g);
+    const v = await getSlotsView(g);
+    setView(v);
+
+    // If there's room (open slot + under weekly cap), surface the next eligible
+    // candidate (top of the ranked deck, past-pairs already excluded by getDeck).
+    if (v.canReceiveDelivery) {
+      const deck = await getDeck();
+      const pendingId = v.slots.find((s) => s.state === 'candidate_pending')?.candidateId;
+      const next = pendingId ? deck.find((m) => m.profile.id === pendingId) ?? deck[0] : deck[0];
+      if (next) {
+        // Reserve the slot for this candidate if not already pending.
+        if (!pendingId) await deliverCandidate(next.profile.id, g);
+        setCandidate(next);
+        setView(await getSlotsView(g));
+      } else {
+        setCandidate(null);
+      }
+    } else {
+      // A slot may hold a pending candidate already delivered this week.
+      const pendingId = v.slots.find((s) => s.state === 'candidate_pending')?.candidateId;
+      if (pendingId) {
+        const deck = await getDeck();
+        setCandidate(deck.find((m) => m.profile.id === pendingId) ?? null);
+      } else {
+        setCandidate(null);
+      }
+    }
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Lazily fuse astrology for the current top card (never blocks the deck).
+  // Lazily fuse astrology for the surfaced candidate (never blocks the UI).
   useEffect(() => {
-    if (!deck || !deck[index]) return;
-    const top = deck[index];
-    if (top.fused?.astroAvailable || top.fused?.astro) return; // already hydrated
+    if (!candidate) return;
+    if (candidate.fused?.astroAvailable || candidate.fused?.astro) return;
     let alive = true;
     (async () => {
       const birth = await getMyBirth();
       if (!birth || !alive) return;
-      const fused = await hydrateAstro(birth, top);
+      const mode = await getMyCompatMode();
+      const fused = await hydrateAstro(birth, candidate, mode);
       if (!alive) return;
-      setDeck((cur) => {
-        if (!cur) return cur;
-        const copy = [...cur];
-        copy[index] = { ...copy[index], fused, score: fused.score };
-        return copy;
-      });
+      setCandidate((cur) => (cur ? { ...cur, fused, score: fused.score } : cur));
     })();
     return () => { alive = false; };
-  }, [deck, index]);
-
-  const advance = () => setIndex((i) => i + 1);
+  }, [candidate]);
 
   const onLike = async (m: MatchResult) => {
-    await likeProfile(m.profile.id);
-    setViewedToday((v) => v + 1);
-    advance();
-    if (m.score >= 80) {
-      router.push({ pathname: '/match/celebration', params: { id: m.profile.id } });
-    }
+    if (busy) return;
+    setBusy(true);
+    // Opt-in → the connection opens into the slot (counterpart auto-opts-in; sim seam).
+    await optInCandidate(m.profile.id, gender);
+    haptic.success();
+    setCandidate(null);
+    setBusy(false);
+    router.push({ pathname: '/match/celebration', params: { id: m.profile.id } });
   };
   const onPass = async (m: MatchResult) => {
-    await passProfile(m.profile.id);
-    setViewedToday((v) => v + 1);
-    advance();
+    if (busy) return;
+    setBusy(true);
+    // Decline → frees the slot, pair never returns (forward-only, no penalty).
+    await declineSlot(m.profile.id, gender);
+    haptic.medium();
+    setCandidate(null);
+    setBusy(false);
+    load();
   };
 
-  if (!deck) {
+  if (!view) {
     return (
-      <CinematicBackground>
+      <SkyBackground>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={t.colors.primary} />
         </View>
-      </CinematicBackground>
+      </SkyBackground>
     );
   }
 
-  const remaining = deck.slice(index);
-  // Premium (trial or subscriber) = unlimited; free accounts hit the daily cap.
-  const limitReached = !isPremium && viewedToday >= DAILY_LIMIT;
+  const activeCount = view.slots.filter((s) => s.state === 'active').length;
+  const capReached = view.deliveriesThisWeek >= view.deliveryCap;
+  const slotsFull = view.openCount === 0;
 
   return (
-    <CinematicBackground>
+    <SkyBackground>
       <View style={{ flex: 1, paddingTop: insets.top + t.spacing.md, paddingBottom: insets.bottom + 80 }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
           <View>
-            <Text variant="overline" color="textFaint" uppercase>Your alignment today</Text>
-            <Text variant="displayLg">Today's matches</Text>
+            <Text variant="overline" color="textFaint" uppercase>Today’s soul</Text>
+            <Text variant="displayLg">One at a time</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: t.spacing.md }}>
-            <Pressable onPress={() => !isPremium && router.push('/paywall')}>
-              <Chip label={isPremium ? 'Unlimited' : `${Math.max(0, DAILY_LIMIT - viewedToday)} of ${DAILY_LIMIT} left`} tone="accent" />
-            </Pressable>
-            <Pressable onPress={() => router.push('/settings/theme')} hitSlop={12}
-              style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: t.colors.bgElevated, borderWidth: 1, borderColor: t.colors.border }}>
-              <Text variant="title" color="textMuted">⚙</Text>
-            </Pressable>
-          </View>
+          <SlotPips t={t} view={view} />
         </View>
 
-        {/* Deck */}
+        {/* One candidate at a time — no endless stack */}
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: t.spacing.md }}>
-          {limitReached ? (
-            <Empty t={t} title="That's your 5 for today" body="Meaningful connection takes intention. Go unlimited, or come back tomorrow for your next aligned matches." onReset={async () => { await resetDeck(); setViewedToday(0); load(); }} onUpgrade={() => router.push('/paywall')} />
-          ) : remaining.length === 0 ? (
-            <Empty t={t} title="You're all caught up" body="No more matches in your deck right now. New aligned souls arrive daily." onReset={async () => { await resetDeck(); setViewedToday(0); load(); }} />
+          {candidate && revealedId !== candidate.profile.id ? (
+            <MatchReveal t={t} m={candidate} onReveal={() => { haptic.medium(); setRevealedId(candidate.profile.id); }} />
+          ) : candidate ? (
+            <SwipeCard onLike={() => onLike(candidate)} onPass={() => onPass(candidate)} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+              <MatchCardBody m={candidate} t={t} width={width} height={height} onReading={() => router.push({ pathname: '/match/[id]/report', params: { id: candidate.profile.id } })} />
+            </SwipeCard>
+          ) : slotsFull ? (
+            <Empty t={t} title={`Your ${activeCount > 1 ? activeCount + ' connections are' : 'connection is'} open`}
+              body="Focus on who you've matched with. A slot frees up if a connection ends — that's the point: real attention, not endless scrolling."
+              cta="Go to your Today" onCta={() => router.push('/(tabs)/today')} />
+          ) : capReached ? (
+            <Empty t={t} title="That's this week's introductions"
+              body="We deliver a small number of genuine, curated souls each week — never a feed to grind. Your Today still has a reading and your connections waiting."
+              cta="Open Today" onCta={() => router.push('/(tabs)/today')} />
           ) : (
-            // Render up to 3 stacked cards; top is swipeable, others peek behind.
-            remaining.slice(0, 3).reverse().map((m, ri, arr) => {
-              const depth = arr.length - 1 - ri; // 0 = top
-              const isTop = depth === 0;
-              const card = (
-                <MotiView
-                  key={m.profile.id}
-                  from={{ scale: 0.92 - depth * 0.04, translateY: depth * 14, opacity: 0 }}
-                  animate={{ scale: 1 - depth * 0.04, translateY: depth * 14, opacity: 1 }}
-                  transition={{ type: 'timing', duration: 320 }}
-                  style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <MatchCardBody m={m} t={t} width={width} height={height} />
-                </MotiView>
-              );
-              return isTop ? (
-                <SwipeCard key={m.profile.id} onLike={() => onLike(m)} onPass={() => onPass(m)} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <MatchCardBody m={m} t={t} width={width} height={height} onReading={() => router.push({ pathname: '/match/[id]/report', params: { id: m.profile.id } })} />
-                </SwipeCard>
-              ) : card;
-            })
+            <Empty t={t} title="No new soul to introduce yet"
+              body="We only surface people who genuinely fit your lens. While the stars align the next one, your Today has a reading and a gentle intention."
+              cta="Open Today" onCta={() => router.push('/(tabs)/today')} />
           )}
         </View>
 
-        {/* Action buttons (alternative to swiping) */}
-        {!limitReached && remaining.length > 0 && (
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl, paddingHorizontal: t.spacing.xl }}>
-            <RoundBtn t={t} label="✕" tone="danger" onPress={() => { haptic.medium(); onPass(remaining[0]); }} />
-            <RoundBtn t={t} label="✦" tone="primary" big onPress={() => router.push({ pathname: '/match/chat', params: { id: remaining[0].profile.id } })} />
-            <RoundBtn t={t} label="♥" tone="success" onPress={() => { haptic.medium(); onLike(remaining[0]); }} />
+        {/* Opt-in / decline — only after the soul is revealed (no hoarding) */}
+        {candidate && revealedId === candidate.profile.id && (
+          <View style={{ alignItems: 'center', paddingHorizontal: t.spacing.xl, gap: t.spacing.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: t.spacing.xl }}>
+              <RoundBtn t={t} label="✕" tone="danger" onPress={() => onPass(candidate)} />
+              <RoundBtn t={t} label="♥" tone="success" big onPress={() => onLike(candidate)} />
+            </View>
+            <Text variant="caption" color="textFaint" center>
+              Pass freely — it’s never held against you. We won’t flood you with replacements.
+            </Text>
           </View>
         )}
-
       </View>
-    </CinematicBackground>
+    </SkyBackground>
+  );
+}
+
+/**
+ * MatchReveal — the daily ritual. Before the card is shown, a calm anticipation
+ * moment: the two-lights animation, a teaser of the alignment, and a deliberate
+ * "meet them" tap. Makes the introduction feel chosen, not dealt (vision §6).
+ */
+function MatchReveal({ t, m, onReveal }: { t: ReturnType<typeof useTheme>; m: MatchResult; onReveal: () => void }) {
+  const soulPrint = Math.round(m.fused?.psych?.score ?? m.score);
+  const starSync = m.fused?.astro ? Math.round(m.fused.astro.compositePct) : null;
+  return (
+    <View style={{ alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
+      <SoulMerge size={150} />
+      <Text variant="overline" color="highlight" uppercase style={{ marginTop: t.spacing.lg }}>Today’s soul has arrived</Text>
+      <Text variant="displayLg" center style={{ marginTop: t.spacing.xs }}>One soul, chosen for you</Text>
+      <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm, maxWidth: 280 }}>
+        Not a feed to scroll — one person we believe is genuinely meant for yours, read from your
+        Soul Print{starSync !== null ? ' and aligned by your Star Sync' : ''}.
+      </Text>
+      <View style={{ flexDirection: 'row', gap: t.spacing.md, marginTop: t.spacing.lg }}>
+        <RevealStat t={t} label="Soul Print" pct={soulPrint} />
+        {starSync !== null && <RevealStat t={t} label="Star Sync" pct={starSync} />}
+      </View>
+      <View style={{ marginTop: t.spacing.xl, width: '100%' }}>
+        <Button label="Meet them  →" onPress={onReveal} />
+      </View>
+    </View>
+  );
+}
+
+function RevealStat({ t, label, pct }: { t: ReturnType<typeof useTheme>; label: string; pct: number }) {
+  return (
+    <View style={{ alignItems: 'center', backgroundColor: t.colors.glass, borderWidth: 1, borderColor: t.colors.border, borderRadius: t.radii.lg, paddingHorizontal: t.spacing.lg, paddingVertical: t.spacing.md, minWidth: 110 }}>
+      <Text variant="overline" color="textFaint" uppercase>{label}</Text>
+      <Text variant="displayLg" color="highlight">{pct}%</Text>
+    </View>
+  );
+}
+
+/** Slot pips: filled = active/pending, hollow = open. Communicates scarcity. */
+function SlotPips({ t, view }: { t: ReturnType<typeof useTheme>; view: SlotsView }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      {view.slots.map((s) => (
+        <View key={s.index} style={{
+          width: 12, height: 12, borderRadius: 12,
+          borderWidth: 1.5, borderColor: t.colors.primary,
+          backgroundColor: s.state === 'open' ? 'transparent' : t.colors.primary,
+        }} />
+      ))}
+    </View>
   );
 }
 
@@ -174,14 +246,9 @@ function MatchCardBody({ m, t, width, height, onReading }: { m: MatchResult; t: 
       <Image source={m.profile.photo} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} />
       <LinearGradient colors={['transparent', 'rgba(10,6,16,0.5)', 'rgba(10,6,16,0.95)']} locations={[0.35, 0.65, 1]} style={StyleSheet.absoluteFill} />
 
-      {/* Score ring top-right */}
+      {/* Score ring top-right — the signature gold ring */}
       <View style={{ position: 'absolute', top: t.spacing.lg, right: t.spacing.lg, alignItems: 'center' }}>
-        <CompatibilityRing score={m.score} size={76} />
-        {m.fused?.astro && (
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: t.radii.pill, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6 }}>
-            <Text variant="caption" color="textOnImage" onImage>psych+astro</Text>
-          </View>
-        )}
+        <CompatibilityRing score={m.score} size={64} variant="soul" />
       </View>
 
       {/* Bottom info */}
@@ -199,17 +266,28 @@ function MatchCardBody({ m, t, width, height, onReading }: { m: MatchResult; t: 
         </Text>
         <Text variant="body" color="textOnImageMuted" onImage style={{ marginTop: t.spacing.sm }} numberOfLines={1}>{m.profile.blurb}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: t.spacing.sm, marginTop: t.spacing.md }}>
-          {m.reasons.slice(0, 3).map((r) => (
-            <View key={r.dim} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
-              <Text variant="label" color="textOnImage" onImage>{r.dim}</Text>
-              <Text variant="label" color="textOnImageMuted" onImage>{r.pct}%</Text>
-            </View>
-          ))}
+          <SoulChip t={t} label="Soul Print" pct={Math.round(m.fused?.psych?.score ?? m.score)} />
+          {m.fused?.astro && <SoulChip t={t} label="Star Sync" pct={Math.round(astroPct(m))} />}
         </View>
         <Pressable onPress={onReading} style={{ marginTop: t.spacing.lg, alignSelf: 'flex-start' }}>
           <Text variant="label" color="textOnImage" onImage>✦ See full reading  →</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+/** Star Sync percentage from the fused astro result. */
+function astroPct(m: MatchResult): number {
+  return m.fused?.astro?.compositePct ?? 0;
+}
+
+/** A glass pill over the photo showing a Soul Print / Star Sync score. */
+function SoulChip({ t, label, pct }: { t: ReturnType<typeof useTheme>; label: string; pct: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: t.colors.glass, borderWidth: 1, borderColor: t.colors.border, borderRadius: t.radii.pill, paddingHorizontal: t.spacing.md, paddingVertical: 6 }}>
+      <Text variant="label" color="textOnImage" onImage>{label}</Text>
+      <Text variant="label" color="textOnImageMuted" onImage>{pct}%</Text>
     </View>
   );
 }
@@ -224,15 +302,17 @@ function RoundBtn({ t, label, tone, onPress, big }: { t: ReturnType<typeof useTh
   );
 }
 
-function Empty({ t, title, body, onReset, onUpgrade }: { t: ReturnType<typeof useTheme>; title: string; body: string; onReset: () => void; onUpgrade?: () => void }) {
+function Empty({ t, title, body, cta, onCta }: { t: ReturnType<typeof useTheme>; title: string; body: string; cta?: string; onCta?: () => void }) {
   return (
-    <GlassCard glow style={{ marginHorizontal: t.spacing.xl, alignItems: 'center' }}>
-      <Text variant="headline" center>{title}</Text>
-      <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm }}>{body}</Text>
-      <View style={{ marginTop: t.spacing.lg, width: '100%', gap: t.spacing.sm }}>
-        {onUpgrade && <Button label="Go unlimited" onPress={onUpgrade} />}
-        <Button label="Reset deck (demo)" variant="secondary" onPress={onReset} />
-      </View>
-    </GlassCard>
+    <View style={{ alignItems: 'center', paddingHorizontal: t.spacing.xl }}>
+      <SoulMerge size={130} />
+      <Text variant="headline" center style={{ marginTop: t.spacing.lg }}>{title}</Text>
+      <Text variant="body" color="textMuted" center style={{ marginTop: t.spacing.sm, maxWidth: 280 }}>{body}</Text>
+      {cta && onCta && (
+        <View style={{ marginTop: t.spacing.xl, width: '100%' }}>
+          <Button label={cta} variant="secondary" onPress={onCta} />
+        </View>
+      )}
+    </View>
   );
 }

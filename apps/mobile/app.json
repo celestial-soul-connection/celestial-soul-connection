@@ -13,19 +13,46 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.csc.app"
+      "bundleIdentifier": "com.csc.app",
+      "buildNumber": "1"
     },
     "android": {
-      "package": "com.csc.app"
+      "package": "com.csc.app",
+      "versionCode": 5,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
       "expo-font",
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Celestial Soul Connection uses your photos so you can add profile pictures.",
+          "cameraPermission": false
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.400808248934-8idon6opqbqnjms8hemi3lb7c2iof6qa"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "845a8d93-05bf-44c4-ad2d-9bbfdb760055"
+      }
+    },
+    "owner": "celestial_soul_connection"
   }
 }

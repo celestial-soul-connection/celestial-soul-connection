@@ -45,9 +45,10 @@ class User(Base):
     id = Column(String, primary_key=True, default=_uuid)
     email = Column(String, unique=True, nullable=False, index=True)
     phone = Column(String, unique=True, nullable=True, index=True)  # E.164; login + uniqueness
-    password_hash = Column(String, nullable=False)
-    auth_provider = Column(String, default="password")  # "password" now; "google" later
-    dob = Column(String, nullable=False)           # ISO date; enforced 18+ at signup
+    password_hash = Column(String, nullable=True)  # null for OAuth users (no password)
+    auth_provider = Column(String, default="password")  # "password" | "google"
+    google_sub = Column(String, unique=True, nullable=True, index=True)  # Google account id (sub claim)
+    dob = Column(String, nullable=True)            # ISO date; 18+ enforced at signup or in onboarding (OAuth)
     is_verified = Column(Boolean, default=False)   # KYC status (docs stored separately)
     intent_score = Column(Float, default=0.5)      # serious-intent signal (see psychology doc)
     is_active = Column(Boolean, default=True)      # false = offboarded defaulter
@@ -56,6 +57,19 @@ class User(Base):
     # Sensitive — stored encrypted (Fernet tokens), not plaintext.
     birth_time_enc = Column(String, nullable=True)
     birth_place_enc = Column(String, nullable=True)
+
+    # Profile basics
+    display_name = Column(String, nullable=True)
+    bio = Column(Text, nullable=True)
+    photo_url = Column(String, nullable=True)       # primary photo (object storage URL)
+
+    # Coarse location ONLY (privacy: city / geohash, never raw precise coords)
+    city = Column(String, nullable=True)
+    geohash = Column(String, nullable=True)
+    location_updated_at = Column(DateTime, nullable=True)
+
+    # Expo push token for notifications
+    expo_push_token = Column(String, nullable=True)
 
 
 class ConsentEvent(Base):
@@ -127,3 +141,43 @@ class AccessLog(Base):
     action = Column(String, nullable=False)         # read|write|export|delete
     resource = Column(String, nullable=False)
     created_at = Column(DateTime, default=_now)
+
+
+class Profile(Base):
+    """Extended profile bits kept as JSON (interests, intentions, photo refs).
+    Name/bio/primary photo live on User; this holds the variable-shape extras."""
+    __tablename__ = "profiles"
+    user_id = Column(String, ForeignKey("users.id"), primary_key=True)
+    interests_json = Column(Text, default="[]")
+    intentions_json = Column(Text, default="{}")
+    photos_json = Column(Text, default="[]")        # ordered photo URLs
+    updated_at = Column(DateTime, default=_now)
+
+
+class Subscription(Base):
+    """Server-side mirror of the store entitlement (Apple/Google). Source of truth
+    is the store receipt; we persist the verified state to gate features."""
+    __tablename__ = "subscriptions"
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey("users.id"), index=True, nullable=False)
+    plan_id = Column(String, nullable=False)        # weekly_99 | weekly_199
+    store = Column(String, nullable=False)          # apple | google
+    status = Column(String, default="active")       # active | expired | grace | refunded
+    original_txn_id = Column(String, nullable=True, index=True)
+    expires_at = Column(DateTime, nullable=True)
+    in_trial = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now)
+
+
+class ConnectionSlot(Base):
+    """The scarcity model: a user holds N slots; ONE curated candidate occupies a
+    slot at a time. Opt-in opens the connection (→ active); decline frees it and
+    the pair is never re-suggested (forward-only)."""
+    __tablename__ = "connection_slots"
+    id = Column(String, primary_key=True, default=_uuid)
+    user_id = Column(String, ForeignKey("users.id"), index=True, nullable=False)
+    candidate_id = Column(String, ForeignKey("users.id"), nullable=True)
+    state = Column(String, default="open")          # open | candidate_pending | active | declined
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now)

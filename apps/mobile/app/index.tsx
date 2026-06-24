@@ -1,147 +1,77 @@
 /**
- * Welcome — cinematic first impression.
+ * Welcome — the locked "Two lights, one sky" first impression.
  *
- * Full-bleed hero image with a slow Ken-Burns drift, a layered gradient scrim
- * for legibility, drifting starfield/mesh behind it, and a staggered poetic
- * reveal of the headline + CTAs. All effect intensities come from the active
- * feel preset (feel.ts) so the whole vibe is tunable from one place.
- *
- * Swap HERO_IMAGE for your own brand photography — that single change carries
- * most of the "premium" weight.
+ * Living sky backdrop (breathing nebula + stars + gold stardust) with the
+ * signature SoulMerge animation at the heart: two lights spiral together and
+ * bloom into one, then rest and begin again. Poetic, concept-first copy that
+ * carries into the App Store. All colour/motion from the centralized theme.
  */
 import React, { useEffect, useState } from 'react';
-import { View, useWindowDimensions, StyleSheet, Pressable } from 'react-native';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
-import { CinematicBackground } from '../src/components/fx/CinematicBackground';
+import { SkyBackground } from '../src/components/fx/SkyBackground';
+import { SkyScreen } from '../src/components/SkyScreen';
+import { SoulMerge } from '../src/components/fx/SoulMerge';
 import { Reveal } from '../src/components/fx/Reveal';
 import { Text } from '../src/components/Text';
 import { Button } from '../src/components/Button';
-import { Chip } from '../src/components/Chip';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { getSession } from '../src/data/session';
-
-// Swap this for your own brand hero. A warm, intimate, cinematic couple/portrait.
-const HERO_IMAGE =
-  'https://images.unsplash.com/photo-1518199266791-5375a83190b7?q=80&w=1200&auto=format&fit=crop';
 
 export default function Welcome() {
   const t = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
 
-  // Returning-user gate: skip the welcome hero if a session already exists.
+  // Returning-user gate: skip the welcome if a session already exists.
   const [checked, setChecked] = useState(false);
   useEffect(() => {
     (async () => {
       const s = await getSession();
-      if (s) router.replace(s.onboarded ? '/(tabs)/discover' : '/onboarding/birth-portal');
+      if (s) router.replace(s.onboarded ? '/(tabs)/today' : '/onboarding/birth-portal');
       else setChecked(true);
     })();
   }, []);
 
-  // Ken Burns: slow scale + drift on the hero image.
-  const kb = useSharedValue(0);
-  useEffect(() => {
-    if (!t.feel.hero.kenBurns) return;
-    kb.value = withRepeat(withTiming(1, { duration: 14000, easing: Easing.inOut(Easing.ease) }), -1, true);
-  }, [kb, t.feel.hero.kenBurns]);
-  const kbStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: 1 + kb.value * (t.feel.hero.kenBurnsScale - 1) },
-      { translateX: kb.value * -t.feel.hero.parallax },
-      { translateY: kb.value * -t.feel.hero.parallax * 0.6 },
-    ],
-  }));
-
-  // Avoid flashing the welcome hero while we check for an existing session.
-  if (!checked) return <CinematicBackground><View style={{ flex: 1 }} /></CinematicBackground>;
+  if (!checked) return <SkyBackground><View style={{ flex: 1 }} /></SkyBackground>;
 
   return (
-    <CinematicBackground>
-      {/* Hero image fills the upper ~70% and bleeds under the content. */}
-      <Animated.View style={[StyleSheet.absoluteFill, kbStyle]}>
-        <Image source={HERO_IMAGE} style={{ width, height: height * 0.82 }} contentFit="cover" transition={600} />
-      </Animated.View>
-
-      {/* Scrims: top vignette for status bar, strong bottom gradient for text. */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.35)', 'transparent']}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 160 }}
-      />
-      {/* Always-dark bottom scrim so light hero text is legible in EVERY palette. */}
-      <LinearGradient
-        colors={['transparent', 'rgba(10,6,16,0.35)', 'rgba(10,6,16,0.78)', 'rgba(10,6,16,0.94)']}
-        locations={[0, 0.4, 0.72, 1]}
-        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: height * 0.7 }}
-      />
-
-      {/* Content sits over the bottom of the hero. */}
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'flex-end',
-          paddingHorizontal: t.spacing.xl,
-          paddingBottom: insets.bottom + t.spacing.xl,
-        }}>
+    <SkyScreen scroll={false}>
+      <View style={{ flex: 1, justifyContent: 'center' }}>
         <Reveal index={0}>
-          <Chip label="Intentional connection" tone="primary" />
+          <SoulMerge size={200} />
         </Reveal>
 
         <Reveal index={1}>
-          <Text variant="displayXl" color="textOnImage" onImage style={{ marginTop: t.spacing.lg }}>
-            Find the soul
+          <Text variant="overline" color="textFaint" uppercase center style={{ marginTop: t.spacing.lg }}>
+            Soul alignment, not endless swiping
           </Text>
         </Reveal>
+
         <Reveal index={2}>
-          <Text
-            variant="displayXl"
-            color="textOnImage"
-            onImage
-            style={{ fontFamily: t.fontFamily.displayItalic, marginTop: -4 }}>
-            that aligns with yours.
-          </Text>
+          <Text variant="displayXl" center style={{ marginTop: t.spacing.sm }}>Two lights,</Text>
         </Reveal>
-
         <Reveal index={3}>
-          <Text variant="bodyLg" color="textOnImageMuted" onImage style={{ marginTop: t.spacing.lg }}>
-            One meaningful match a day — matched on who you really are: attachment,
-            values, and life goals, woven with your celestial story.
+          <Text variant="displayXl" color="highlight" center style={{ fontFamily: t.fontFamily.displayItalic, marginTop: -4 }}>
+            one sky.
           </Text>
         </Reveal>
 
-        <Reveal index={4} style={{ marginTop: t.spacing.xl }}>
-          <View style={{ flexDirection: 'row', gap: t.spacing.lg, marginBottom: t.spacing.xl }}>
-            <Trait t={t} label="Verified · 18+" />
-            <Trait t={t} label="No number sharing" />
-            <Trait t={t} label="Privacy-first" />
-          </View>
-        </Reveal>
-
-        <Reveal index={5} style={{ gap: t.spacing.md }}>
-          <Button label="Begin your alignment" onPress={() => router.push('/auth/signup')} />
-          <Button label="I already have an account" variant="glassLight" onPress={() => router.push('/auth/login')} />
-          <Text variant="caption" color="textOnImageMuted" onImage center style={{ marginTop: t.spacing.xs }}>
-            By continuing you agree to granular, withdrawable consent. You choose what we use.
+        <Reveal index={4}>
+          <Text variant="bodyLg" color="textMuted" center style={{ marginTop: t.spacing.lg, paddingHorizontal: t.spacing.sm, lineHeight: 24 }}>
+            Not a feed to scroll — a few souls truly meant for yours, read from your{' '}
+            <Text variant="bodyLg" color="text">Soul Print</Text> and aligned by your{' '}
+            <Text variant="bodyLg" color="text">Star Sync</Text>.
           </Text>
-          <Pressable onPress={() => router.push('/settings/theme')} style={{ alignSelf: 'center', paddingVertical: t.spacing.sm }}>
-            <Text variant="label" color="textOnImage" onImage>✦ Try a different style</Text>
-          </Pressable>
         </Reveal>
       </View>
-    </CinematicBackground>
-  );
-}
 
-function Trait({ t, label }: { t: ReturnType<typeof useTheme>; label: string }) {
-  return (
-    <View style={{ flex: 1 }}>
-      <View style={{ width: 7, height: 7, borderRadius: 7, backgroundColor: t.colors.accent, marginBottom: t.spacing.sm }} />
-      <Text variant="caption" color="textOnImageMuted" onImage>{label}</Text>
-    </View>
+      <Reveal index={5} style={{ gap: t.spacing.md }}>
+        <Button label="Begin your alignment  →" onPress={() => router.push('/auth/signup')} />
+        <Text variant="caption" color="textMuted" center style={{ marginTop: t.spacing.xs }}>
+          Already aligned?{' '}
+          <Text variant="caption" color="highlight" onPress={() => router.push('/auth/login')}>Sign in</Text>
+        </Text>
+      </Reveal>
+    </SkyScreen>
   );
 }

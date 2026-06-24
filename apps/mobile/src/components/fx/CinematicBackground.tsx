@@ -1,28 +1,16 @@
 /**
- * CinematicBackground — the composed premium backdrop: base colour → drifting
- * gradient mesh → starfield → film grain. Everything it shows is governed by the
- * active feel preset, so changing ACTIVE_FEEL changes the whole atmosphere.
+ * CinematicBackground — the app's premium backdrop. As of the design revamp this
+ * IS the "living sky": breathing nebula, twinkling stars, falling gold stardust,
+ * and a bottom veil (see SkyBackground). Kept under this name so every existing
+ * screen + ScreenFrame picks up the new look with no import changes.
  *
- * Replaces the old flat AuraBackground. ScreenFrame uses this.
+ * New screens should prefer <SkyScreen/> (adds safe-area + entrance), but this
+ * remains the single composed atmosphere layer.
  */
 import React from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
-import { useTheme } from '../../theme/ThemeProvider';
-import { GradientMesh } from './GradientMesh';
-import { Starfield } from './Starfield';
-import { Grain } from './Grain';
-import { SkiaGlow } from './SkiaGlow';
+import { ViewStyle } from 'react-native';
+import { SkyBackground } from './SkyBackground';
 
 export function CinematicBackground({ children, style }: { children?: React.ReactNode; style?: ViewStyle }) {
-  const t = useTheme();
-  return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: t.colors.bg }, style]}>
-      {/* Skia = real GPU blur glow; GradientMesh stays as a soft fallback layer. */}
-      <SkiaGlow />
-      <GradientMesh />
-      <Starfield />
-      <Grain />
-      {children}
-    </View>
-  );
+  return <SkyBackground style={style}>{children}</SkyBackground>;
 }

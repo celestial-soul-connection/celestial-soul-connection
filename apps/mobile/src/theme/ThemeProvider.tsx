@@ -1,20 +1,25 @@
 /**
  * ThemeProvider — exposes the active theme to the whole app and persists the
- * user's PALETTE and FEEL choices. Components consume it via `useTheme()`.
+ * user's THEME, MODE, and FEEL choices. Components consume it via `useTheme()`.
  *
- * Two independent live knobs:
- *   - palette (warmDusk / cosmicTwilight / sunriseTeal)  → colours
- *   - feel    (cinematic / glassLuxe / editorial / minimal) → atmosphere & motion
- * Both are switchable at runtime and persisted, so the look can be explored in
- * the app without touching code.
+ * Three independent live knobs:
+ *   - theme (midnightViolet / roseGold / deepTeal / obsidianGold) → colour family
+ *   - mode  (light / dark)                                        → light or dark
+ *   - feel  (cinematic / glassLuxe / editorial / minimal)         → atmosphere & motion
+ * All switchable at runtime and persisted, so the look can be explored in the
+ * app without touching code.
  */
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PALETTES, DEFAULT_THEME, ThemeName, ThemeTokens } from './palettes';
+import {
+  PALETTES, THEME_ORDER, DEFAULT_THEME, DEFAULT_MODE, resolvePalette,
+  ThemeName, ThemeMode, ThemeTokens,
+} from './palettes';
 import { spacing, radii, typography, fontFamily, motion, elevation } from './tokens';
 import { FEELS, ACTIVE_FEEL, Feel, FeelName } from './feel';
 
-const PALETTE_KEY = '@csc/theme';
+const THEME_KEY = '@csc/theme';
+const MODE_KEY = '@csc/mode';
 const FEEL_KEY = '@csc/feel';
 
 export interface Theme extends ThemeTokens {
@@ -31,30 +36,48 @@ interface ThemeContextValue {
   theme: Theme;
   themeName: ThemeName;
   setTheme: (name: ThemeName) => void;
+  mode: ThemeMode;
+  setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
   feelName: FeelName;
   setFeel: (name: FeelName) => void;
-  available: { name: ThemeName; label: string; mode: string }[];
+  available: { name: ThemeName; label: string }[];
   availableFeels: { name: FeelName; label: string }[];
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function compose(name: ThemeName, feel: FeelName): Theme {
-  return { ...PALETTES[name], spacing, radii, typography, fontFamily, motion, elevation, feel: FEELS[feel] };
+function compose(name: ThemeName, mode: ThemeMode, feel: FeelName): Theme {
+  return { ...resolvePalette(name, mode), spacing, radii, typography, fontFamily, motion, elevation, feel: FEELS[feel] };
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME);
+  const [mode, setModeState] = useState<ThemeMode>(DEFAULT_MODE);
   const [feelName, setFeelName] = useState<FeelName>(ACTIVE_FEEL);
 
   useEffect(() => {
-    AsyncStorage.getItem(PALETTE_KEY).then((s) => { if (s && s in PALETTES) setThemeName(s as ThemeName); });
+    AsyncStorage.getItem(THEME_KEY).then((s) => { if (s && s in PALETTES) setThemeName(s as ThemeName); });
+    AsyncStorage.getItem(MODE_KEY).then((s) => { if (s === 'light' || s === 'dark') setModeState(s); });
     AsyncStorage.getItem(FEEL_KEY).then((s) => { if (s && s in FEELS) setFeelName(s as FeelName); });
   }, []);
 
   const setTheme = useCallback((name: ThemeName) => {
     setThemeName(name);
-    AsyncStorage.setItem(PALETTE_KEY, name).catch(() => {});
+    AsyncStorage.setItem(THEME_KEY, name).catch(() => {});
+  }, []);
+
+  const setMode = useCallback((m: ThemeMode) => {
+    setModeState(m);
+    AsyncStorage.setItem(MODE_KEY, m).catch(() => {});
+  }, []);
+
+  const toggleMode = useCallback(() => {
+    setModeState((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      AsyncStorage.setItem(MODE_KEY, next).catch(() => {});
+      return next;
+    });
   }, []);
 
   const setFeel = useCallback((name: FeelName) => {
@@ -64,15 +87,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<ThemeContextValue>(
     () => ({
-      theme: compose(themeName, feelName),
+      theme: compose(themeName, mode, feelName),
       themeName,
       setTheme,
+      mode,
+      setMode,
+      toggleMode,
       feelName,
       setFeel,
-      available: Object.values(PALETTES).map((p) => ({ name: p.name, label: p.label, mode: p.mode })),
+      available: THEME_ORDER.map((n) => ({ name: n, label: PALETTES[n].dark.label })),
       availableFeels: Object.values(FEELS).map((f) => ({ name: f.name, label: f.label })),
     }),
-    [themeName, feelName, setTheme, setFeel],
+    [themeName, mode, feelName, setTheme, setMode, toggleMode, setFeel],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

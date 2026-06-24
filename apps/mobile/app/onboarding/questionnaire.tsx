@@ -14,6 +14,7 @@ import { Chip } from '../../src/components/Chip';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { QUESTIONS, SCALE, compute } from '../../src/data/questionnaire';
 import { setMyPsych } from '../../src/data/store';
+import { savePsychToSupabase } from '../../src/data/supabaseStore';
 import { markOnboarded } from '../../src/data/session';
 import { haptic } from '../../src/lib/haptics';
 
@@ -36,9 +37,10 @@ export default function Questionnaire() {
       // finish
       const profile = compute(next);
       await setMyPsych(profile);
+      await savePsychToSupabase(profile);
       await markOnboarded();
       haptic.success();
-      router.replace('/(tabs)/discover');
+      router.replace('/(tabs)/today');
     }
   };
 

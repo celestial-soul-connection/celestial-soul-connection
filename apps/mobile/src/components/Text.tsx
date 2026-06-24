@@ -10,7 +10,7 @@ import { TypographyVariant } from '../theme/tokens';
 type ColorToken =
   | 'text' | 'textMuted' | 'textFaint' | 'textOnPrimary' | 'textOnAccent'
   | 'textOnImage' | 'textOnImageMuted'
-  | 'primary' | 'accent' | 'danger' | 'success';
+  | 'primary' | 'accent' | 'highlight' | 'danger' | 'success';
 
 interface Props extends RNTextProps {
   variant?: TypographyVariant;
