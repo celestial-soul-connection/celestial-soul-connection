@@ -15,12 +15,12 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.celestialsoul.app",
+      "bundleIdentifier": "com.celestialsoulconnection.app",
       "buildNumber": "1"
     },
     "android": {
-      "package": "com.celestialsoul.app",
-      "versionCode": 5,
+      "package": "com.celestialsoulconnection.app",
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#241433"
