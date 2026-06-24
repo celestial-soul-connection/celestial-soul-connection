@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     google_ios_client_id: str = ""
     google_android_client_id: str = ""
 
+    # Location: server-side key for places autocomplete + reverse geocoding. Kept
+    # on the server (never shipped in the app) so it can be cached + rate-limited.
+    geocode_provider: str = "google"        # google | mapbox | nominatim
+    geocode_api_key: str = ""
+
     class Config:
         env_file = ".env"
 

@@ -1,6 +1,7 @@
 """Reporting & offboarding. Any user can report; reports are auditable; offboarding
 a defaulter logs reason + actor and deactivates rather than hard-deleting evidence
 needed for safety (compliance skill §2)."""
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -15,7 +16,7 @@ class ReportIn(BaseModel):
     reporter_id: str
     reported_id: str
     reason: str
-    detail: str | None = None
+    detail: Optional[str] = None
 
 
 @router.post("")

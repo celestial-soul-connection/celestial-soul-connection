@@ -21,7 +21,10 @@ export const ASTRO_RETRIES = 1;
 // Our own FastAPI backend (auth, profiles, matches). Override per environment.
 // In dev, point at your machine's LAN IP so a physical phone can reach it, e.g.
 // 'http://192.168.31.155:8000'. Localhost only works in a simulator.
-export const API_BASE_URL = 'http://localhost:8000';
+// Per-build via EAS (eas.json `env.EXPO_PUBLIC_API_URL`); falls back to localhost
+// for `expo start` dev. Android emulator reaches the host machine at 10.0.2.2;
+// a physical device needs your LAN IP or a deployed HTTPS URL.
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 export const API_TIMEOUT_MS = 15000;
 
 // Google Sign-In OAuth client IDs (from Google Cloud Console → Credentials).

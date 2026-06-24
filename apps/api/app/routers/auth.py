@@ -8,6 +8,7 @@ Auth endpoints — first-party signup/login with email + phone + password.
 - Signup logs the required `account_core` consent to the append-only ledger.
 - Google sign-in is planned (auth_provider column already supports it).
 """
+from typing import Optional
 import re
 from datetime import date
 
@@ -30,7 +31,7 @@ GOOGLE_ISSUERS = ("accounts.google.com", "https://accounts.google.com")
 PHONE_RE = re.compile(r"^\+?[0-9]{7,15}$")
 
 
-def _normalize_phone(phone: str | None) -> str | None:
+def _normalize_phone(phone: Optional[str]) -> Optional[str]:
     if not phone:
         return None
     p = re.sub(r"[\s\-()]", "", phone)
@@ -143,9 +144,9 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
 # can't be replayed here.                                                     #
 # --------------------------------------------------------------------------- #
 class GoogleIn(BaseModel):
-    id_token: str | None = None
-    access_token: str | None = None
-    dob: str | None = None  # required only when creating a NEW Google account (18+ gate)
+    id_token: Optional[str] = None
+    access_token: Optional[str] = None
+    dob: Optional[str] = None  # required only when creating a NEW Google account (18+ gate)
 
 
 def _allowed_google_aud() -> set[str]:

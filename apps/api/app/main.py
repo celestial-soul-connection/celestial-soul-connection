@@ -11,7 +11,7 @@ from fastapi import FastAPI
 
 from app.core.db import Base, engine
 from app.core.config import settings
-from app.routers import auth, consent, chat, matches, reports, data_rights
+from app.routers import auth, consent, chat, matches, reports, data_rights, me, location, slots, billing
 
 # Dev convenience: create tables. Use Alembic migrations in production.
 Base.metadata.create_all(bind=engine)
@@ -24,6 +24,10 @@ app.include_router(matches.router)
 app.include_router(chat.router)
 app.include_router(reports.router)
 app.include_router(data_rights.router)
+app.include_router(me.router)
+app.include_router(location.router)
+app.include_router(slots.router)
+app.include_router(billing.router)
 
 
 @app.get("/health")
