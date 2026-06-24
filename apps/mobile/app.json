@@ -7,18 +7,25 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#FFF6F2",
+      "image": "./assets/splash-icon.png",
+      "backgroundColor": "#0B0820",
       "resizeMode": "contain"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.csc.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "icon": "./assets/icon.png"
     },
     "android": {
       "package": "com.csc.app",
       "versionCode": 5,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B0820"
+      },
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
