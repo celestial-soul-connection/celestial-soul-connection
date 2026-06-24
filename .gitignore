@@ -12,8 +12,8 @@ node_modules/
 dist/
 *.log
 
-# Fonts (binary, download per assets/fonts/README.md)
-apps/mobile/assets/fonts/*.ttf
+# Brand fonts are committed (EAS builds from git + respects .gitignore on upload,
+# so they must NOT be ignored). See assets/fonts/README.md.
 
 # OS / editor
 .DS_Store
