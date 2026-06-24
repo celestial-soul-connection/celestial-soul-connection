@@ -18,6 +18,7 @@ import { searchPlaces, Place } from '../../src/data/placeSearch';
 import { MARITAL_OPTIONS, MaritalStatus, CompatibilityMode, DEFAULT_COMPAT_MODE } from '../../src/data/types';
 import { CompatModeChooser } from '../../src/components/CompatModeChooser';
 import { setMyBirth, setMyAge, setMyGender, setMySeeking, setMyMaritalStatus, setMyCompatMode } from '../../src/data/store';
+import { saveProfileToSupabase, saveBirthToSupabase } from '../../src/data/supabaseStore';
 
 type Consent = { key: string; label: string; help: string; required?: boolean; default?: boolean };
 const CONSENTS: Consent[] = [
@@ -78,6 +79,17 @@ export default function BirthPortal() {
   const consentOk = CONSENTS.filter((c) => c.required).every((c) => consent[c.key]);
   const canContinue = !!gender && !!seeking && !!marital && validDate && validTime && !!place && consentOk;
 
+  // Make the gate transparent — tell the user exactly what's still needed.
+  const missing = [
+    !gender && 'I am a…',
+    !seeking && 'Show me…',
+    !marital && 'marital status',
+    !validDate && 'date of birth',
+    !validTime && 'time of birth',
+    !place && 'place of birth (tap a result)',
+    !consentOk && 'required consents',
+  ].filter(Boolean) as string[];
+
   const submit = async () => {
     if (!place || !gender || !seeking || !marital) return;
     await setMyGender(gender);
@@ -86,6 +98,9 @@ export default function BirthPortal() {
     await setMyCompatMode(compatMode);
     await setMyBirth({ date, time, latitude: place.latitude, longitude: place.longitude, timezone: place.timezone, place: place.place });
     await setMyAge(ageFromDate(date));
+    // Also persist to Supabase (owner-scoped). Best-effort; never blocks the flow.
+    await saveProfileToSupabase({ gender, seeking, marital, city: place.place });
+    await saveBirthToSupabase({ date, time, place: place.place });
     router.replace('/onboarding/questionnaire');
   };
 
@@ -145,7 +160,17 @@ export default function BirthPortal() {
         <DateTimeField mode="time" label="Time of birth" value={time} onChange={(c) => setTime(c)} />
         <Divider t={t} />
         <Labeled t={t} label="Place of birth">
-          <TextInput value={place ? place.place : placeQuery} onChangeText={onPlaceChange} placeholder="Start typing a city…" placeholderTextColor={t.colors.textFaint} style={inputStyle(t)} />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TextInput value={place ? place.place : placeQuery} onChangeText={onPlaceChange} placeholder="Start typing a city…" placeholderTextColor={t.colors.textFaint} style={[inputStyle(t), { flex: 1 }]} />
+            {(place || placeQuery.length > 0) && (
+              <Pressable
+                onPress={() => { if (debounce.current) clearTimeout(debounce.current); setPlace(null); setPlaceQuery(''); setResults([]); setSearching(false); }}
+                hitSlop={12}
+                style={{ paddingHorizontal: t.spacing.sm }}>
+                <Text variant="title" color="textMuted">✕</Text>
+              </Pressable>
+            )}
+          </View>
           {searching && <ActivityIndicator color={t.colors.primary} style={{ marginTop: t.spacing.sm, alignSelf: 'flex-start' }} />}
           {!place && results.map((r) => (
             <Pressable key={r.place + r.latitude} onPress={() => { setPlace(r); setResults([]); }} style={{ paddingVertical: t.spacing.sm, borderTopWidth: 1, borderTopColor: t.colors.border }}>
@@ -185,6 +210,11 @@ export default function BirthPortal() {
       </Text>
 
       <Button label="Create my soul blueprint" disabled={!canContinue} onPress={submit} />
+      {!canContinue && (
+        <Text variant="caption" color="textMuted" center style={{ marginTop: t.spacing.sm }}>
+          Still needed: {missing.join(' · ')}
+        </Text>
+      )}
     </ScreenFrame>
   );
 }

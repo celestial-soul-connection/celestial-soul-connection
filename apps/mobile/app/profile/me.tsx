@@ -26,6 +26,9 @@ import {
   getMyBirth, getMyAge, getMyGender, getMySeeking, getMyMaritalStatus, isIdVerified,
 } from '../../src/data/store';
 import { haptic } from '../../src/lib/haptics';
+import { supabase } from '../../src/data/supabase';
+import { signOut } from '../../src/data/session';
+import { saveProfileToSupabase } from '../../src/data/supabaseStore';
 
 const INTENT_FIELDS: { key: keyof LifeIntentions; label: string; icon: string; opts: { v: string; label: string }[] }[] = [
   { key: 'household', label: 'Running the household', icon: '🏠', opts: [{ v: 'shared', label: 'Shared' }, { v: 'i_lead', label: 'I lead' }, { v: 'partner_leads', label: 'Partner leads' }, { v: 'flexible', label: 'Flexible' }] },
@@ -49,6 +52,7 @@ export default function MyProfile() {
   const [photoVerifying, setPhotoVerifying] = useState(false);
   const [photoVerified, setPhotoVerified] = useState(false);
   const [idVerified, setIdVerified] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
   // Read-only birth/identity facts (set during onboarding, shown for transparency).
   const [birth, setBirth] = useState<BirthData | undefined>();
   const [age, setAge] = useState<number | undefined>();
@@ -68,8 +72,16 @@ export default function MyProfile() {
       setSeeking(await getMySeeking());
       setMarital(await getMyMaritalStatus());
       setIdVerified(await isIdVerified());
+      const { data: { user } } = await supabase.auth.getUser();
+      setEmail(user?.email ?? user?.phone ?? null);
     })();
   }, []));
+
+  const doSignOut = async () => {
+    haptic.light();
+    await signOut();
+    router.replace('/');
+  };
 
   const pickPhoto = async () => {
     haptic.light();
@@ -90,6 +102,7 @@ export default function MyProfile() {
     await setMyProfile({ name, bio, photos: photo ? [photo] : [] });
     await setMyInterests(interests);
     await setMyIntentions(intentions);
+    await saveProfileToSupabase({ name, bio, interests, intentions, photos: photo ? [photo] : [] });
     haptic.success();
     router.back();
   };
@@ -256,6 +269,18 @@ export default function MyProfile() {
           <View style={{ gap: t.spacing.md, marginTop: t.spacing.xl }}>
             <Button label="Save profile" onPress={save} />
             <Button label="Retake my blueprint" variant="ghost" onPress={() => router.push('/onboarding/questionnaire')} />
+          </View>
+
+          {/* Auth identity (Supabase) — confirms who you're signed in as + sign out */}
+          <View style={{ alignItems: 'center', marginTop: t.spacing.xl, gap: t.spacing.xs }}>
+            {email ? (
+              <Text variant="caption" color="textFaint">Signed in as {email}</Text>
+            ) : (
+              <Text variant="caption" color="textFaint">Not signed in</Text>
+            )}
+            <Pressable onPress={doSignOut} hitSlop={8} style={{ paddingVertical: t.spacing.sm }}>
+              <Text variant="label" color="danger">Sign out</Text>
+            </Pressable>
           </View>
         </View>
       </ScrollView>

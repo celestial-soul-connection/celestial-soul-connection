@@ -73,7 +73,7 @@ export function GoogleSignInButton({
   return (
     <Pressable
       onPress={working ? undefined : press}
-      disabled={!ready && GOOGLE_OAUTH_CONFIGURED}
+      disabled={working}
       style={{
         height: 54,
         borderRadius: t.radii.pill,

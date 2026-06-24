@@ -34,10 +34,11 @@ export const API_TIMEOUT_MS = 15000;
 //   - Expo Go / web  → webClientId (also the audience the backend verifies)
 //   - native iOS      → iosClientId
 //   - native Android  → androidClientId
+// All three MUST belong to the SAME Google Cloud project (currently 456432271911).
 export const GOOGLE_OAUTH = {
-  webClientId: '400808248934-60ku1gavf25o7mbnbib07kqu4jgdjdu1.apps.googleusercontent.com',
-  iosClientId: '400808248934-8idon6opqbqnjms8hemi3lb7c2iof6qa.apps.googleusercontent.com',
-  androidClientId: '', // optional — add when you build for Android
+  webClientId: '456432271911-kfm0jm01b2eafv5ekg41jntkssvjgepg.apps.googleusercontent.com',
+  iosClientId: '', // create an iOS client in project 456432271911 when you build iOS
+  androidClientId: '456432271911-ehcuu3srjok3lrkn8rh42l87qt65p610.apps.googleusercontent.com',
 };
 
 /** True once the client IDs you need have been pasted in (gates the Google

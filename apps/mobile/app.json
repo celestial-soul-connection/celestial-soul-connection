@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "runtimeVersion": { "policy": "appVersion" },
     "splash": {
       "backgroundColor": "#FFF6F2",
       "resizeMode": "contain"
@@ -19,7 +18,7 @@
     },
     "android": {
       "package": "com.csc.app",
-      "versionCode": 1,
+      "versionCode": 3,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
@@ -37,10 +36,23 @@
           "photosPermission": "Celestial Soul Connection uses your photos so you can add profile pictures.",
           "cameraPermission": false
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.400808248934-8idon6opqbqnjms8hemi3lb7c2iof6qa"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "845a8d93-05bf-44c4-ad2d-9bbfdb760055"
+      }
+    },
+    "owner": "celestial_soul_connection"
   }
 }
