@@ -4,7 +4,7 @@
 # they never live in git. Non-secret defaults are inlined.
 services:
   - type: web
-    name: csc-api
+    name: celestial-soul-connection-api
     runtime: python
     rootDir: apps/api          # monorepo: build/run from here
     plan: free                 # free sleeps after 15 min idle; "starter" = always-on
