@@ -1,0 +1,50 @@
+# Render blueprint — deploys the FastAPI backend (apps/api).
+# Docs: https://render.com/docs/blueprint-spec
+# Secrets are marked `sync: false` → you set their VALUES in the Render dashboard,
+# they never live in git. Non-secret defaults are inlined.
+services:
+  - type: web
+    name: csc-api
+    runtime: python
+    rootDir: apps/api          # monorepo: build/run from here
+    plan: free                 # free sleeps after 15 min idle; "starter" = always-on
+    region: singapore          # closest to Supabase Mumbai (ap-south-1)
+    branch: main               # change to the branch that has your backend code
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      # ---- secrets → set values in Render dashboard (copy from apps/api/.env) ----
+      - key: DATABASE_URL              # Supabase pooler, transaction mode, :6543, ?sslmode=require
+        sync: false
+      - key: FIELD_ENCRYPTION_KEY      # 32+ byte secret (field-level encryption)
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GOOGLE_WEB_CLIENT_ID
+        sync: false
+      - key: GOOGLE_ANDROID_CLIENT_ID
+        sync: false
+      - key: ASTRO_API_BASE_URL
+        sync: false
+      - key: ASTRO_API_KEY
+        sync: false
+      - key: GEOCODE_API_KEY
+        sync: false
+      # ---- non-secret defaults ----
+      - key: DATA_REGION
+        value: ap-south-1
+      - key: GEOCODE_PROVIDER
+        value: google
+      - key: SUPABASE_STORAGE_BUCKET
+        value: photos
